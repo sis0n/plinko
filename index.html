@@ -1,15 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RollyRoyal Plinko</title>
     <link rel="stylesheet" href="style/style.css">
-    <title>Plinko</title>
 </head>
-
 <body>
+    <div class="main-container">
+        <!-- Top Section: Game and HUD -->
+        <div class="top-section">
+            <div class="game-pane">
+                <canvas id="plinkoCanvas"></canvas>
+            </div>
+            
+            <aside class="hud-pane">
+                <div class="hud-group balance-section">
+                    <label>Balance</label>
+                    <div id="userBalance">$1000.00</div>
+                    <button id="resetBalance" class="secondary-btn">Reset Balance</button>
+                </div>
 
+                <div class="hud-group">
+                    <label>Bet Amount</label>
+                    <div class="bet-input-wrapper">
+                        <input type="number" id="betAmount" value="10.00" step="1.00" min="1.00">
+                        <div class="bet-shortcuts">
+                            <button id="minBet">MIN</button>
+                            <button id="maxBet">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hud-group">
+                    <label>Risk Level</label>
+                    <select id="riskLevel">
+                        <option value="low">Low</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+
+                <div class="hud-group">
+                    <label>Lines: <span id="lineValue">8</span></label>
+                    <input type="range" id="linesCount" min="8" max="16" value="8">
+                </div>
+
+                <div class="hud-group">
+                    <label>Active Pets</label>
+                    <div class="pet-toggles" id="petToggles">
+                        <!-- Toggles for Alwyn, Asher, Beto, Colmo, Gab, Kyle, Renz -->
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="playBtn" class="primary-btn">PLAY</button>
+                    <button id="receiptBtn" class="secondary-btn">Save Receipt</button>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Bottom Section: Pets Area -->
+        <div class="pets-section">
+            <canvas id="petsCanvas"></canvas>
+        </div>
+    </div>
+    <script src="script/script.js"></script>
 </body>
-
 </html>
