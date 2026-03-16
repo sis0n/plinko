@@ -1,0 +1,155 @@
+:root {
+    --gold: #d4af37;
+    --gold-bright: #f9d71c;
+    --dark-bg: #0b0d17;
+    --panel-bg: rgba(255, 255, 255, 0.05);
+    --text-color: #ffffff;
+    --accent: #e91e63;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--dark-bg);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.main-container {
+    width: 95vw;
+    height: 95vh;
+    display: grid;
+    grid-template-rows: 1fr 150px;
+    gap: 10px;
+}
+
+.top-section {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 10px;
+    overflow: hidden;
+}
+
+.game-pane {
+    background: var(--panel-bg);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#plinkoCanvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.hud-pane {
+    background: var(--panel-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.hud-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hud-group label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: bold;
+}
+
+#userBalance {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #4caf50;
+    text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+input, select {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--gold), #8a6d3b);
+    border: none;
+    color: black;
+    padding: 15px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.primary-btn:active {
+    transform: scale(0.98);
+}
+
+.secondary-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.pets-section {
+    background: rgba(0,0,0,0.3);
+    border-top: 1px solid var(--gold);
+    position: relative;
+}
+
+#petsCanvas {
+    width: 100%;
+    height: 100%;
+}
+
+.pet-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.pet-checkbox {
+    display: none;
+}
+
+.pet-label {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.pet-checkbox:checked + .pet-label {
+    background: var(--gold);
+    color: black;
+    border-color: var(--gold);
+}
