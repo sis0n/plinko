@@ -1,5 +1,5 @@
 // Constants & Configuration
-const PET_NAMES = ['Alwyn', 'Asher', 'Beto', 'Colmo', 'Gab', 'Kyle', 'Renz'];
+const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
 
 // State
 let state = {
@@ -95,18 +95,18 @@ function initHUD() {
 }
 
 function dropBall() {
+    const spacing = Math.min(plinkoCanvas.width / (state.lines + 2), plinkoCanvas.height / (state.lines + 3));
     const ballX = plinkoCanvas.width / 2 + (Math.random() - 0.5) * 10;
-    
+
     balls.push({
         x: ballX,
         y: 20,
         vx: (Math.random() - 0.5) * 2,
         vy: 0,
-        radius: 6,
+        radius: Math.max(2, spacing * 0.15),
         color: '#ffc107'
     });
 }
-
 const GRAVITY = 0.2;
 const FRICTION = 0.99;
 const BOUNCE = 0.5;
@@ -183,7 +183,6 @@ function handleWin(multiplier) {
 
     // Trigger celebrations
     if (multiplier > 2) {
-...
         pets.forEach(p => {
             if (state.activePets.has(p.name)) p.celebrate();
         });
@@ -204,13 +203,14 @@ class Pet {
         this.name = name;
         this.image = new Image();
         this.image.src = `Sprites/pets/${name}.png`;
-        this.x = Math.random() * petsCanvas.width;
-        this.y = 50;
+        this.size = 60;
+        this.x = Math.random() * (petsCanvas.width - this.size);
+        this.y = (petsCanvas.height - this.size) / 2;
         this.vx = (Math.random() - 0.5) * 2;
         this.frame = 0;
-        this.state = 'walk'; 
+        this.state = 'walk';
         this.celebrateTimer = 0;
-        this.direction = 1; 
+        this.direction = 1;
     }
 
     update() {
@@ -219,40 +219,66 @@ class Pet {
             if (this.celebrateTimer <= 0) {
                 this.state = 'walk';
             }
+            // Celebration animation (usually 5-7 frames, looping)
+            if (Date.now() % 120 < 20) {
+                this.frame = (this.frame + 1) % 5; 
+            }
         } else {
             this.x += this.vx;
-            if (this.x < 0 || this.x > petsCanvas.width - 50) {
+            if (this.x < 0) {
+                this.x = 0;
                 this.vx *= -1;
-                this.direction = this.vx > 0 ? 1 : -1;
+            } else if (this.x > petsCanvas.width - this.size) {
+                this.x = petsCanvas.width - this.size;
+                this.vx *= -1;
             }
-        }
+            this.direction = this.vx > 0 ? 1 : -1;
 
-        if (Date.now() % 100 < 20) {
-            this.frame = (this.frame + 1) % 4; 
+            // Walking animation (8 frames)
+            if (Date.now() % 100 < 20) {
+                this.frame = (this.frame + 1) % 8;
+            }
         }
     }
 
     draw(ctx) {
         const row = this.state === 'celebrate' ? 1 : 0;
-        
+        const s = this.size;
+
         ctx.save();
-        ctx.translate(this.x + 25, this.y + 25);
+        ctx.translate(this.x + s/2, this.y + s/2);
         if (this.direction === -1) ctx.scale(-1, 1);
-        
-        if (this.image.complete) {
-            ctx.drawImage(this.image, 
-                this.frame * 100, row * 100, 100, 100,
-                -25, -25, 50, 50);
-        } else {
+
+        try {
+            if (this.image.complete && this.image.naturalWidth > 0) {
+                // Determine sw and sh based on 8 columns and 2 rows
+                const sw = this.image.naturalWidth / 8;
+                const sh = this.image.naturalHeight / 2;
+                
+                const finalRow = (row + 1) * sh > this.image.naturalHeight ? 0 : row;
+
+                ctx.drawImage(this.image, 
+                    this.frame * sw, finalRow * sh, sw, sh,
+                    -s/2, -s/2, s, s);
+            } else {
+                ctx.fillStyle = '#d4af37';
+                ctx.beginPath();
+                ctx.arc(0, 0, s/3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${s/4}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(this.name[0].toUpperCase(), 0, s/10);
+            }
+        } catch (e) {
             ctx.fillStyle = '#d4af37';
-            ctx.fillRect(-20, -20, 40, 40);
+            ctx.fillRect(-s/4, -s/4, s/2, s/2);
         }
         ctx.restore();
     }
-
     celebrate() {
         this.state = 'celebrate';
-        this.celebrateTimer = 120; 
+        this.celebrateTimer = 120;
     }
 }
 
@@ -338,8 +364,14 @@ function generateBoard() {
     pegs = [];
     slots = [];
     const rows = state.lines;
-    const spacing = Math.min(plinkoCanvas.width / (rows + 2), plinkoCanvas.height / (rows + 3));
-    const startY = 50;
+    const startY = 40; 
+    const slotHeight = 30;
+    
+    // Calculate spacing to fit height: startY + rows*spacing + spacing*0.8 + slotHeight < height
+    const availableHeight = plinkoCanvas.height - startY - slotHeight - 40;
+    const maxSpacingH = availableHeight / (rows + 0.8);
+    const maxSpacingW = (plinkoCanvas.width - 40) / (rows + 2);
+    const spacing = Math.min(maxSpacingW, maxSpacingH);
 
     // Generate Pegs in a pyramid
     for (let r = 0; r <= rows; r++) {
@@ -351,7 +383,7 @@ function generateBoard() {
             pegs.push({
                 x: startX + c * spacing,
                 y: startY + r * spacing,
-                radius: 4
+                radius: Math.max(1, spacing * 0.08)
             });
         }
     }
@@ -362,7 +394,6 @@ function generateBoard() {
     const rowWidth = slotRowPegs * spacing;
     const startX = (plinkoCanvas.width - rowWidth) / 2;
     
-    // Get multipliers based on lines and risk
     const multipliers = (MULTIPLIERS[rows] || MULTIPLIERS[8])[state.risk] || MULTIPLIERS[8].normal;
 
     for (let i = 0; i < slotRowPegs; i++) {
@@ -370,7 +401,7 @@ function generateBoard() {
             x: startX + i * spacing,
             y: lastRowY + spacing * 0.8,
             width: spacing - 4,
-            height: 30,
+            height: slotHeight,
             multiplier: multipliers[i] || 1
         });
     }
@@ -380,7 +411,7 @@ function draw() {
     updatePhysics();
     // Clear
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
-    
+
     // Background Gradient (Luxury Casino Feel)
     const gradient = plinkoCtx.createRadialGradient(
         plinkoCanvas.width / 2, plinkoCanvas.height / 2, 50,
@@ -401,13 +432,14 @@ function draw() {
 
     // Draw Slots
     slots.forEach(slot => {
+        const spacing = (plinkoCanvas.width - 40) / (state.lines + 2); // Approximation for scaling text
         plinkoCtx.fillStyle = '#ff9800';
         plinkoCtx.fillRect(slot.x + 2, slot.y, slot.width, slot.height);
-        
+
         plinkoCtx.fillStyle = '#000';
-        plinkoCtx.font = 'bold 10px sans-serif';
+        plinkoCtx.font = `bold ${Math.max(8, slot.width * 0.25)}px sans-serif`;
         plinkoCtx.textAlign = 'center';
-        plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + 20);
+        plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + slot.height * 0.7);
     });
 
     // Draw Balls
@@ -440,7 +472,10 @@ function draw() {
     }
 
     // Draw Pets
-    petsCtx.clearRect(0, 0, petsCanvas.width, petsCanvas.height);
+    // Explicitly draw dark background for pets area
+    petsCtx.fillStyle = '#0b0d17'; 
+    petsCtx.fillRect(0, 0, petsCanvas.width, petsCanvas.height);
+
     pets.forEach(pet => {
         if (state.activePets.has(pet.name)) {
             pet.update();
@@ -449,14 +484,13 @@ function draw() {
     });
 
     requestAnimationFrame(draw);
-}
-
+    }
 // Start
 window.onload = () => {
     initHUD();
+    resizeCanvases(); // Resize first so initPets knows canvas dimensions
     initPets();
     updateDisplay();
-    resizeCanvases();
     window.addEventListener('resize', resizeCanvases);
     draw();
     console.log('RollyRoyal Plinko Initialized');
