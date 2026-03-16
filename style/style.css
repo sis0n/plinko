@@ -23,13 +23,33 @@ body {
     justify-content: center;
     align-items: center;
 }
-
 .main-container {
     width: 95vw;
     height: 95vh;
     display: grid;
     grid-template-rows: 1fr 150px;
     gap: 10px;
+}
+
+@media (max-width: 900px) {
+    .main-container {
+        height: auto;
+        grid-template-rows: auto auto 150px;
+        overflow-y: auto;
+    }
+    .top-section {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .game-pane {
+        aspect-ratio: 1 / 1;
+        width: 100%;
+    }
+    .hud-pane {
+        width: 100%;
+        height: auto;
+        max-height: none;
+    }
 }
 
 .top-section {
@@ -119,7 +139,6 @@ input, select {
 }
 
 .pets-section {
-    background: rgba(0,0,0,0.3);
     border-top: 1px solid var(--gold);
     position: relative;
 }
