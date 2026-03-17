@@ -16,10 +16,17 @@
             
             <aside class="hud-pane">
                 <div class="hud-group balance-section">
-                    <label>Balance</label>
+                    <div class="hud-header">
+                        <label>Balance</label>
+                        <button id="soundToggle" class="icon-btn" title="Toggle Sound">🔊</button>
+                    </div>
                     <div id="userBalance">$1000.00</div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
+
+                <audio id="bgMusic" loop>
+                    <source src="mp3/Michael Giacchino - Life s Incredible Again.mp3" type="audio/mpeg">
+                </audio>
 
                 <div class="hud-group">
                     <label>Bet Amount</label>
