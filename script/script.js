@@ -214,7 +214,7 @@ class Pet {
         this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
         this.image = new Image();
         this.image.src = `Sprites/pets/${name}.png`;
-        this.size = 80; // Slightly larger for better detail
+        this.size = 40; // Slightly larger for better detail
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = (petsCanvas.height - this.size) / 2;
         this.vx = (Math.random() - 0.5) * 2;
