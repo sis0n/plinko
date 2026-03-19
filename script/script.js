@@ -170,6 +170,9 @@ function handleWin(multiplier) {
     state.balance += winAmount;
     updateDisplay();
 
+    // Log to history
+    addHistoryEntry(state.bet, multiplier);
+
     // Visual Effect for wins
     if (multiplier >= 2) {
         winEffects.push({
@@ -196,6 +199,22 @@ function handleWin(multiplier) {
 
 function updateDisplay() {
     balanceEl.textContent = `$${state.balance.toFixed(2)}`;
+}
+
+function addHistoryEntry(bet, multiplier) {
+    const historyList = document.getElementById('historyList');
+    const profit = bet * multiplier;
+    const entry = document.createElement('div');
+    entry.className = 'history-entry';
+    entry.innerHTML = `
+        <span class="hist-bet">$${bet.toFixed(2)}</span>
+        <span class="hist-multi">${multiplier}x</span>
+        <span class="hist-profit ${multiplier >= 1 ? 'win' : 'loss'}">$${profit.toFixed(2)}</span>
+    `;
+    historyList.prepend(entry);
+    if (historyList.children.length > 20) {
+        historyList.removeChild(historyList.lastChild);
+    }
 }
 
 class Pet {

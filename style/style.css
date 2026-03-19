@@ -34,27 +34,33 @@ body {
 @media (max-width: 900px) {
     .main-container {
         height: auto;
-        grid-template-rows: auto auto 150px;
+        grid-template-rows: auto auto auto 150px;
         overflow-y: auto;
     }
     .top-section {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         height: auto;
     }
     .game-pane {
         aspect-ratio: 1 / 1;
         width: 100%;
+        order: 1;
     }
     .hud-pane {
         width: 100%;
         height: auto;
         max-height: none;
+        order: 2;
+    }
+    .history-pane {
+        width: 100%;
+        order: 3;
     }
 }
 
 .top-section {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: 200px 1fr 300px;
     gap: 10px;
     overflow: hidden;
 }
@@ -75,7 +81,7 @@ body {
     object-fit: contain;
 }
 
-.hud-pane {
+.history-pane, .hud-pane {
     background: var(--panel-bg);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -83,13 +89,14 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .hud-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
 }
 
 .hud-group label {
@@ -172,3 +179,34 @@ input, select {
     color: black;
     border-color: var(--gold);
 }
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.3);
+    padding: 8px;
+    border-radius: 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.history-entry {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    text-align: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.history-entry:last-child {
+    border-bottom: none;
+}
+
+.hist-bet { color: #aaa; }
+.hist-multi { color: var(--gold); font-weight: bold; }
+.hist-profit.win { color: #4caf50; }
+.hist-profit.loss { color: #f44336; }
