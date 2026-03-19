@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RollyRoyal Plinko</title>
+    <link rel="icon" href="favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style/style.css">
 </head>
 <body>
@@ -20,15 +21,23 @@
             </aside>
 
             <div class="game-pane">
+                <img src="favicon/android-chrome-512x512.png" alt="RollyRoyal Logo" class="game-logo">
                 <canvas id="plinkoCanvas"></canvas>
             </div>
             
             <aside class="hud-pane">
                 <div class="hud-group balance-section">
-                    <label>Balance</label>
+                    <div class="hud-header">
+                        <label>Balance</label>
+                        <button id="soundToggle" class="icon-btn" title="Toggle Sound">🔊</button>
+                    </div>
                     <div id="userBalance">$1000.00</div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
+
+                <audio id="bgMusic" loop>
+                    <source src="mp3/Michael Giacchino - Life s Incredible Again.mp3" type="audio/mpeg">
+                </audio>
 
                 <div class="hud-group">
                     <label>Bet Amount</label>
