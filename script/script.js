@@ -393,7 +393,7 @@ function generateBoard() {
     const spacing = Math.min(maxSpacingW, maxSpacingH);
 
     // Generate Pegs in a pyramid
-    for (let r = 0; r <= rows; r++) {
+    for (let r = 1; r <= rows; r++) {
         const rowPegs = r + 1;
         const rowWidth = rowPegs * spacing;
         const startX = (plinkoCanvas.width - rowWidth) / 2 + spacing / 2;
