@@ -513,9 +513,61 @@ function draw() {
     pegs.forEach(peg => { plinkoCtx.beginPath(); plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2); plinkoCtx.fill(); });
 
     slots.forEach(slot => {
-        plinkoCtx.fillStyle = '#ff9800'; plinkoCtx.fillRect(slot.x + 2, slot.y, slot.width, slot.height);
-        plinkoCtx.fillStyle = '#000'; plinkoCtx.font = `bold ${Math.max(8, slot.width * 0.25)}px sans-serif`;
-        plinkoCtx.textAlign = 'center'; plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + slot.height * 0.7);
+        // Dynamic "Heat" colors based on multiplier value
+        let baseColor, topColor, bottomColor;
+        const m = slot.multiplier;
+
+        if (m >= 100) {
+            // Ultra Hot (Purple/Magenta)
+            baseColor = '#d500f9'; topColor = '#f50057'; bottomColor = '#4a148c';
+        } else if (m >= 25) {
+            // Very Hot (Bright Red)
+            baseColor = '#ff1744'; topColor = '#ff5252'; bottomColor = '#b71c1c';
+        } else if (m >= 5) {
+            // Hot (Deep Orange)
+            baseColor = '#ff6d00'; topColor = '#ff9100'; bottomColor = '#bf360c';
+        } else if (m >= 2) {
+            // Warm (Orange/Gold)
+            baseColor = '#ffab00'; topColor = '#ffd740'; bottomColor = '#ff6f00';
+        } else if (m >= 1) {
+            // Neutral (Yellow)
+            baseColor = '#ffea00'; topColor = '#ffff8d'; bottomColor = '#f57f17';
+        } else {
+            // Cool (Green - Loss/Small return)
+            baseColor = '#00e676'; topColor = '#69f0ae'; bottomColor = '#1b5e20';
+        }
+
+        // Main gloss gradient
+        const slotGradient = plinkoCtx.createLinearGradient(slot.x, slot.y, slot.x, slot.y + slot.height);
+        slotGradient.addColorStop(0, topColor);
+        slotGradient.addColorStop(0.4, baseColor);
+        slotGradient.addColorStop(1, bottomColor);
+
+        plinkoCtx.fillStyle = slotGradient;
+        plinkoCtx.beginPath();
+        plinkoCtx.roundRect(slot.x + 2, slot.y, slot.width - 4, slot.height, 6);
+        plinkoCtx.fill();
+
+        // 3D Highlight (Glossy top edge)
+        plinkoCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        plinkoCtx.lineWidth = 2;
+        plinkoCtx.beginPath();
+        plinkoCtx.moveTo(slot.x + 6, slot.y + 2);
+        plinkoCtx.lineTo(slot.x + slot.width - 6, slot.y + 2);
+        plinkoCtx.stroke();
+
+        // Shadow/Border
+        plinkoCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        plinkoCtx.lineWidth = 1;
+        plinkoCtx.strokeRect(slot.x + 2, slot.y, slot.width - 4, slot.height);
+
+        plinkoCtx.fillStyle = '#000';
+        plinkoCtx.font = `bold ${Math.max(8, slot.width * 0.28)}px sans-serif`;
+        plinkoCtx.textAlign = 'center';
+        plinkoCtx.shadowColor = 'rgba(255,255,255,0.2)';
+        plinkoCtx.shadowBlur = 2;
+        plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + slot.height * 0.7);
+        plinkoCtx.shadowBlur = 0; // Reset shadow
     });
 
     balls.forEach(ball => { plinkoCtx.fillStyle = ball.color; plinkoCtx.beginPath(); plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); plinkoCtx.fill(); });
