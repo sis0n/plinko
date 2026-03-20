@@ -24,7 +24,7 @@ const TUTORIAL_STEPS = [
     },
     {
         title: "Your Balance",
-        content: "This displays your current funds. If you ever run out, simply click **Reset Balance** to start fresh with $1,000.00.",
+        content: "This displays your current funds. If you ever run out, simply click **Reset Balance** to start fresh with ₱1,000.00.",
         target: ".balance-section"
     },
     {
@@ -34,7 +34,7 @@ const TUTORIAL_STEPS = [
     },
     {
         title: "Bet Amount",
-        content: "Input your stake here. Use **MIN** for a quick $1.00 bet or **MAX** to go all-in with your entire balance. Play responsibly!",
+        content: "Input your stake here. Use **MIN** for a quick ₱1.00 bet or **MAX** to go all-in with your entire balance. Play responsibly!",
         target: ".bet-input-wrapper"
     },
     {
@@ -345,7 +345,7 @@ function handleWin(multiplier) {
 }
 
 function updateDisplay() {
-    balanceEl.textContent = `$${state.balance.toFixed(2)}`;
+    balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
 }
 
 function addHistoryEntry(bet, multiplier) {
@@ -354,9 +354,9 @@ function addHistoryEntry(bet, multiplier) {
     const entry = document.createElement('div');
     entry.className = 'history-entry';
     entry.innerHTML = `
-        <span class="hist-bet">$${bet.toFixed(2)}</span>
+        <span class="hist-bet">₱${bet.toFixed(2)}</span>
         <span class="hist-multi">${multiplier}x</span>
-        <span class="hist-profit ${multiplier >= 1 ? 'win' : 'loss'}">$${profit.toFixed(2)}</span>
+        <span class="hist-profit ${multiplier >= 1 ? 'win' : 'loss'}">₱${profit.toFixed(2)}</span>
     `;
     historyList.prepend(entry);
     if (historyList.children.length > 20) {
