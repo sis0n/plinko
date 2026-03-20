@@ -100,13 +100,172 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    overflow: hidden;
+    overflow-y: auto; /* Changed from overflow: hidden to allow scrolling */
 }
 
-.hud-header {
+/* Collapsible Styles */
+.section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    background: rgba(255,255,255,0.03);
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    transition: background 0.2s;
+}
+
+.section-header:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.toggle-icon {
+    font-size: 0.7rem;
+    color: var(--gold);
+    transition: transform 0.3s ease;
+}
+
+.pet-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    overflow: hidden;
+    max-height: 200px;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease;
+}
+
+.pet-toggles.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+.section-header.active .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.hud-controls {
+    display: flex;
+    gap: 10px;
+}
+
+/* Tutorial Styles */
+.tutorial-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 9998; /* Under the box and highlighted element */
+    transition: opacity 0.3s ease;
+}
+
+.tutorial-overlay.hidden, .tutorial-box.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+}
+
+.tutorial-box {
+    position: fixed;
+    top: 50%;
+    right: 320px; /* Position it near the HUD */
+    transform: translateY(-50%);
+    background: linear-gradient(145deg, #1a1d2d, #0b0d17);
+    border: 2px solid var(--gold);
+    border-radius: 15px;
+    width: 300px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px rgba(212, 175, 55, 0.2);
+    z-index: 10000; /* Always on top */
+    animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.tutorial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    padding-bottom: 8px;
+}
+
+.tutorial-title {
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.skip-link {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    font-size: 0.75rem;
+    text-decoration: underline;
+}
+
+.skip-link:hover {
+    color: white;
+}
+
+.tutorial-content {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 30px; /* Dagdag space para hindi dikit sa button */
+    min-height: 80px;
+}
+
+.tutorial-content b {
+    color: var(--gold-bright);
+}
+
+.tutorial-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 15px;
+}
+
+.step-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.3s;
+}
+
+.dot.active {
+    background: var(--gold);
+    box-shadow: 0 0 5px var(--gold);
+}
+
+@media (max-width: 1200px) {
+    .tutorial-box {
+        right: 50%;
+        transform: translate(50%, -50%);
+    }
+}
+
+.highlight-element {
+    position: relative;
+    z-index: 9999 !important; /* Above overlay, under box */
+    box-shadow: 0 0 20px var(--gold) !important;
+    border-color: var(--gold) !important;
+    transition: all 0.3s ease;
 }
 
 .icon-btn {
@@ -153,6 +312,13 @@ input, select {
     color: white;
     padding: 8px;
     border-radius: 4px;
+}
+
+.tutorial-next {
+    padding: 6px 15px !important;
+    font-size: 0.75rem;
+    min-width: 80px;
+    height: auto !important;
 }
 
 .primary-btn {

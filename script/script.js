@@ -10,6 +10,65 @@ const PET_CONFIGS = {
     'Renz': { walk: 8, celebrate: 5 }
 };
 
+// Tutorial Steps Configuration
+const TUTORIAL_STEPS = [
+    {
+        title: "Welcome to RollyRoyal Plinko!",
+        content: "Step into your personal luxury casino experience. Here, physics and luck combine for big wins. Let's take a quick tour!",
+        target: ".game-pane"
+    },
+    {
+        title: "Recent History",
+        content: "Track your performance on the left. View your **Bet**, **Multiplier**, and **Profit** (Green for wins, Red for losses). Keep an eye on your winning streak!",
+        target: ".history-pane"
+    },
+    {
+        title: "Your Balance",
+        content: "This displays your current funds. If you ever run out, simply click **Reset Balance** to start fresh with $1,000.00.",
+        target: ".balance-section"
+    },
+    {
+        title: "Controls & Settings",
+        content: "Top controls: Click **❓** to replay this guide and **🔊** to toggle the background music. Enjoy the vibe while you play!",
+        target: ".hud-controls"
+    },
+    {
+        title: "Bet Amount",
+        content: "Input your stake here. Use **MIN** for a quick $1.00 bet or **MAX** to go all-in with your entire balance. Play responsibly!",
+        target: ".bet-input-wrapper"
+    },
+    {
+        title: "Risk Level",
+        content: "Choose your strategy:<br>• <b>Low</b>: Frequent but smaller wins.<br>• <b>Normal</b>: Balanced risk and reward.<br>• <b>High</b>: High volatility with massive multipliers!",
+        target: "#riskLevel"
+    },
+    {
+        title: "Lines (Pegs)",
+        content: "Adjust the number of peg rows (8 to 16 lines). More lines mean more multiplier slots and higher jackpot potential!",
+        target: ".hud-group:has(#linesCount)"
+    },
+    {
+        title: "Lucky Pets",
+        content: "Meet your team! Select which pets you want to see. They will celebrate with you whenever you hit those big multipliers!",
+        target: ".collapsible"
+    },
+    {
+        title: "Digital Receipt",
+        content: "Want to flex your win? Click <b>Save Receipt</b>! It downloads an image of your game board to share with friends or on social media.",
+        target: "#receiptBtn"
+    },
+    {
+        title: "Pets Playground",
+        content: "At the bottom, your selected pets walk and play. Watch them celebrate your victories in real-time!",
+        target: ".pets-section"
+    },
+    {
+        title: "Ready, Set, PLAY!",
+        content: "Everything is set! Click <b>PLAY</b> to drop the ball and test your luck. Good luck, Kyle! Have fun!",
+        target: "#playBtn"
+    }
+];
+
 // State
 let state = {
     balance: 1000.00,
@@ -17,7 +76,9 @@ let state = {
     lines: 8,
     risk: 'normal',
     activePets: new Set(PET_NAMES),
-    isMuted: localStorage.getItem('plinkoMuted') === 'true'
+    isMuted: localStorage.getItem('plinkoMuted') === 'true',
+    tutorialStep: 0,
+    isTutorialActive: false
 };
 
 // DOM Elements
@@ -33,8 +94,83 @@ const playBtn = document.getElementById('playBtn');
 const soundToggle = document.getElementById('soundToggle');
 const bgMusic = document.getElementById('bgMusic');
 
+// Tutorial DOM Elements
+const tutorialOverlay = document.getElementById('tutorialOverlay');
+const tutorialBox = document.getElementById('tutorialBox');
+const tutorialContent = document.getElementById('tutorialContent');
+const tutorialNextBtn = document.getElementById('nextStep');
+const skipTutorialBtn = document.getElementById('skipTutorial');
+const tutorialBtn = document.getElementById('tutorialBtn');
+const stepDots = document.getElementById('stepDots');
+
+function startTutorial() {
+    state.tutorialStep = 0;
+    state.isTutorialActive = true;
+    tutorialOverlay.classList.remove('hidden');
+    tutorialBox.classList.remove('hidden');
+    updateTutorialStep();
+}
+
+function updateTutorialStep() {
+    const step = TUTORIAL_STEPS[state.tutorialStep];
+    
+    // Clear previous highlight
+    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    
+    // Update content
+    tutorialContent.innerHTML = `
+        <h3 style="color: var(--gold); margin-bottom: 10px;">${step.title}</h3>
+        <p>${step.content}</p>
+    `;
+
+    // Highlight target
+    const targetEl = document.querySelector(step.target);
+    if (targetEl) targetEl.classList.add('highlight-element');
+
+    // Update button text
+    tutorialNextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
+
+    // Update dots
+    stepDots.innerHTML = TUTORIAL_STEPS.map((_, i) => 
+        `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
+    ).join('');
+}
+
+function nextTutorialStep() {
+    if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
+        state.tutorialStep++;
+        updateTutorialStep();
+    } else {
+        endTutorial();
+    }
+}
+
+function endTutorial() {
+    state.isTutorialActive = false;
+    tutorialOverlay.classList.add('hidden');
+    tutorialBox.classList.add('hidden');
+    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    localStorage.setItem('plinkoTutorialDone', 'true');
+}
+
 // Initialize HUD
 function initHUD() {
+    // Collapsible Pets Logic
+    const petsToggleHeader = document.getElementById('petsToggleHeader');
+    const petToggles = document.getElementById('petToggles');
+    petsToggleHeader.addEventListener('click', () => {
+        petsToggleHeader.classList.toggle('active');
+        petToggles.classList.toggle('collapsed');
+    });
+
+    // Tutorial Events
+    tutorialBtn.addEventListener('click', startTutorial);
+    tutorialNextBtn.addEventListener('click', nextTutorialStep);
+    skipTutorialBtn.addEventListener('click', endTutorial);
+
+    // Auto-start tutorial immediately on load
+    setTimeout(startTutorial, 500);
+
     PET_NAMES.forEach(name => {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = `

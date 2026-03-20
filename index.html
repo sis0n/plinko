@@ -29,7 +29,10 @@
                 <div class="hud-group balance-section">
                     <div class="hud-header">
                         <label>Balance</label>
-                        <button id="soundToggle" class="icon-btn" title="Toggle Sound">🔊</button>
+                        <div class="hud-controls">
+                            <button id="tutorialBtn" class="icon-btn" title="How to Play">❓</button>
+                            <button id="soundToggle" class="icon-btn" title="Toggle Sound">🔊</button>
+                        </div>
                     </div>
                     <div id="userBalance">$1000.00</div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
@@ -64,9 +67,12 @@
                     <input type="range" id="linesCount" min="8" max="16" value="8">
                 </div>
 
-                <div class="hud-group">
-                    <label>Active Pets</label>
-                    <div class="pet-toggles" id="petToggles">
+                <div class="hud-group collapsible">
+                    <div id="petsToggleHeader" class="section-header">
+                        <label>Active Pets</label>
+                        <span id="petsToggleIcon" class="toggle-icon">▼</span>
+                    </div>
+                    <div class="pet-toggles collapsed" id="petToggles">
                         <!-- Toggles for Alwyn, Asher, Beto, Colmo, Gab, Kyle, Renz -->
                     </div>
                 </div>
@@ -83,6 +89,22 @@
             <canvas id="petsCanvas"></canvas>
         </div>
     </div>
+    <!-- Tutorial System -->
+    <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
+    <div id="tutorialBox" class="tutorial-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">RollyRoyal Guide</span>
+            <button id="skipTutorial" class="skip-link">Skip</button>
+        </div>
+        <div class="tutorial-content" id="tutorialContent">
+            <!-- Step content injected here -->
+        </div>
+        <div class="tutorial-footer">
+            <div class="step-dots" id="stepDots"></div>
+            <button id="nextStep" class="primary-btn tutorial-next">NEXT</button>
+        </div>
+    </div>
+
     <script src="script/script.js"></script>
 </body>
 </html>
