@@ -36,6 +36,7 @@
                         </div>
                     </div>
                     <div id="userBalance">₱1000.00</div>
+                    <div id="streakDisplay" class="streak-display" style="display: none;"></div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
 
@@ -67,6 +68,8 @@
                             <button id="maxBet">MAX</button>
                         </div>
                     </div>
+                    <div class="bet-presets" id="betPresets"></div>
+                    <div id="maxWinDisplay" class="max-win-display"></div>
                 </div>
 
                 <div class="hud-group">
@@ -93,8 +96,27 @@
                     </div>
                 </div>
 
+                <div class="hud-group collapsible">
+                    <div id="statsToggleHeader" class="section-header">
+                        <label>Statistics</label>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="stats-display collapsed" id="statsDisplay"></div>
+                </div>
+
+                <div class="hud-group">
+                    <label>Auto Play Speed</label>
+                    <select id="autoPlaySpeed">
+                        <option value="slow">Slow</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="fast">Fast</option>
+                        <option value="turbo">Turbo</option>
+                    </select>
+                </div>
+
                 <div class="actions">
                     <button id="playBtn" class="primary-btn">PLAY</button>
+                    <button id="autoPlayBtn" class="secondary-btn">AUTO PLAY</button>
                     <button id="receiptBtn" class="secondary-btn">Save Receipt</button>
                 </div>
             </aside>
@@ -119,6 +141,13 @@
             <div class="step-dots" id="stepDots"></div>
             <button id="nextStep" class="primary-btn tutorial-next">NEXT</button>
         </div>
+    </div>
+
+    <div id="keyboardHint" class="keyboard-hint">
+        <div><kbd>Space</kbd> / <kbd>Enter</kbd> Rapid Fire Play!</div>
+        <div><kbd>M</kbd> Mute/Unmute</div>
+        <div><kbd>?</kbd> / <kbd>H</kbd> Help</div>
+        <div><kbd>Ctrl+R</kbd> Reset</div>
     </div>
 
     <script src="script/script.js"></script>
