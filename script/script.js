@@ -370,9 +370,9 @@ class Pet {
         this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
         this.image = new Image();
         this.image.src = `Sprites/pets/${name}.png`;
-        this.size = 48; // Slightly larger for better detail
+        this.size = 64; // Scale up for better visibility
         this.x = Math.random() * (petsCanvas.width - this.size);
-        this.y = (petsCanvas.height - this.size) / 2;
+        this.y = petsCanvas.height - this.size - 5; // Stand on the "ground"
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
         this.state = 'walk';
@@ -384,7 +384,7 @@ class Pet {
     update() {
         const maxFrames = this.state === 'celebrate' ? this.config.celebrate : this.config.walk;
         const now = Date.now();
-        const fps = this.state === 'celebrate' ? 100 : 120; // Animation speed in ms
+        const fps = this.state === 'celebrate' ? 120 : 150; // Milliseconds per frame
 
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
@@ -397,6 +397,7 @@ class Pet {
                 this.state = 'walk';
                 this.frame = 0;
                 this.vx = (Math.random() - 0.5) * 1.5;
+                this.direction = this.vx > 0 ? 1 : -1;
             }
         } else {
             this.x += this.vx;
@@ -404,6 +405,9 @@ class Pet {
             else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx *= -1; }
             this.direction = this.vx > 0 ? 1 : -1;
         }
+        
+        // Ensure they stay on the ground during resize or movement
+        this.y = petsCanvas.height - this.size - 5;
     }
 
     draw(ctx) {
@@ -416,15 +420,20 @@ class Pet {
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
-                // FIXED GRID: 8 columns, 2 rows (Walk on top, Celebrate below)
-                const sw = this.image.naturalWidth / 8;
-                const sh = this.image.naturalHeight / 2;
+                // FIXED GRID: 10 columns (256px), 2 rows (720px)
+                // Using 10 columns instead of 8 to fix the "slide through" bleeding issue
+                const sw = Math.floor(this.image.naturalWidth / 10);
+                const sh = Math.floor(this.image.naturalHeight / 2);
                 
-                // Draw the specific frame from the grid
+                const aspect = sw / sh;
+                const drawH = s;
+                const drawW = s * aspect;
+
+                // Added 1px inner crop (buffer) to prevent edge bleeding from adjacent frames
                 ctx.drawImage(this.image, 
-                    this.frame * sw, row * sh, 
-                    sw, sh,
-                    -s/2, -s/2, s, s);
+                    Math.floor(this.frame * sw) + 1, Math.floor(row * sh) + 1, 
+                    sw - 2, sh - 2,
+                    -drawW/2, -drawH/2, drawW, drawH);
             } else {
                 ctx.fillStyle = '#d4af37';
                 ctx.beginPath(); ctx.arc(0, 0, s/3, 0, Math.PI * 2); ctx.fill();
@@ -441,7 +450,7 @@ class Pet {
         if (this.state === 'celebrate') return;
         this.state = 'celebrate';
         this.frame = 0;
-        this.celebrateTimer = 180; // Duration of celebration in frames (approx 3 seconds)
+        this.celebrateTimer = 60; // Approx 2 seconds at current FPS
         this.vx = 0;
     }
 }
