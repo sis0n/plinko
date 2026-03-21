@@ -76,7 +76,8 @@ let state = {
     lines: 8,
     risk: 'normal',
     activePets: new Set(PET_NAMES),
-    isMuted: localStorage.getItem('plinkoMuted') === 'true',
+    isMusicMuted: localStorage.getItem('plinkoMusicMuted') === 'true',
+    isSfxMuted: localStorage.getItem('plinkoSfxMuted') === 'true',
     tutorialStep: 0,
     isTutorialActive: false
 };
@@ -91,8 +92,14 @@ const linesInput = document.getElementById('linesCount');
 const lineValueEl = document.getElementById('lineValue');
 const petTogglesEl = document.getElementById('petToggles');
 const playBtn = document.getElementById('playBtn');
-const soundToggle = document.getElementById('soundToggle');
+const musicToggle = document.getElementById('musicToggle');
+const sfxToggle = document.getElementById('sfxToggle');
 const bgMusic = document.getElementById('bgMusic');
+const collectSound = document.getElementById('collectSound');
+const pegSound = document.getElementById('pegSound');
+const playBtnSound = document.getElementById('playBtnSound');
+const maxBetSound = document.getElementById('maxBetSound');
+const lossSound = document.getElementById('lossSound');
 
 // Tutorial DOM Elements
 const tutorialOverlay = document.getElementById('tutorialOverlay');
@@ -199,6 +206,10 @@ function initHUD() {
     maxBetBtn.addEventListener('click', () => {
         state.bet = state.balance;
         betInput.value = state.bet.toFixed(2);
+        
+        // Play anita-max-win sound
+        maxBetSound.currentTime = 0;
+        maxBetSound.play().catch(() => {});
     });
 
     riskSelect.addEventListener('change', (e) => {
@@ -217,19 +228,40 @@ function initHUD() {
         updateDisplay();
     });
 
-    // Sound Logic
+    // Sound Logic (Music & SFX separately)
     bgMusic.volume = 0.5;
-    bgMusic.muted = state.isMuted;
-    soundToggle.textContent = state.isMuted ? '🔇' : '🔊';
+    bgMusic.muted = state.isMusicMuted;
+    musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
 
-    const toggleSound = () => {
-        state.isMuted = !state.isMuted;
-        bgMusic.muted = state.isMuted;
-        soundToggle.textContent = state.isMuted ? '🔇' : '🔊';
-        localStorage.setItem('plinkoMuted', state.isMuted);
-    };
+    collectSound.volume = 0.4;
+    collectSound.muted = state.isSfxMuted;
+    pegSound.volume = 0.2;
+    pegSound.muted = state.isSfxMuted;
+    playBtnSound.volume = 0.5;
+    playBtnSound.muted = state.isSfxMuted;
+    maxBetSound.volume = 0.6;
+    maxBetSound.muted = state.isSfxMuted;
+    lossSound.volume = 0.6;
+    lossSound.muted = state.isSfxMuted;
+    sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
 
-    soundToggle.addEventListener('click', toggleSound);
+    musicToggle.addEventListener('click', () => {
+        state.isMusicMuted = !state.isMusicMuted;
+        bgMusic.muted = state.isMusicMuted;
+        musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
+        localStorage.setItem('plinkoMusicMuted', state.isMusicMuted);
+    });
+
+    sfxToggle.addEventListener('click', () => {
+        state.isSfxMuted = !state.isSfxMuted;
+        collectSound.muted = state.isSfxMuted;
+        pegSound.muted = state.isSfxMuted;
+        playBtnSound.muted = state.isSfxMuted;
+        maxBetSound.muted = state.isSfxMuted;
+        lossSound.muted = state.isSfxMuted;
+        sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
+        localStorage.setItem('plinkoSfxMuted', state.isSfxMuted);
+    });
 
     // Ensure music starts on first interaction
     const startMusic = () => {
@@ -246,6 +278,10 @@ function initHUD() {
             state.balance -= state.bet;
             updateDisplay();
             dropBall();
+            
+            // Play faaah.mp3 sound
+            playBtnSound.currentTime = 0;
+            playBtnSound.play().catch(() => {});
         } else {
             alert('Insufficient balance!');
         }
@@ -299,6 +335,10 @@ function updatePhysics() {
                 ball.x += nx * overlap;
                 ball.y += ny * overlap;
                 ball.vx += (Math.random() - 0.5) * 0.5;
+
+                // Play peg collision sound
+                pegSound.currentTime = 0;
+                pegSound.play().catch(() => {});
             }
         });
 
@@ -321,6 +361,16 @@ function handleWin(multiplier) {
     const winAmount = state.bet * multiplier;
     state.balance += winAmount;
     updateDisplay();
+
+    // Play collect sound
+    collectSound.currentTime = 0;
+    collectSound.play().catch(() => {});
+
+    // Play loss sound if win is less than bet
+    if (multiplier < 1) {
+        lossSound.currentTime = 0;
+        lossSound.play().catch(() => {});
+    }
 
     // Log to history
     addHistoryEntry(state.bet, multiplier);
