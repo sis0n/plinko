@@ -370,7 +370,7 @@ class Pet {
         this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
         this.image = new Image();
         this.image.src = `Sprites/pets/${name}.png`;
-        this.size = 64; // Scale up for better visibility
+        this.size = 100; // Scale up for better visibility
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = petsCanvas.height - this.size - 5; // Stand on the "ground"
         this.vx = (Math.random() - 0.5) * 1.5;
@@ -450,7 +450,7 @@ class Pet {
         if (this.state === 'celebrate') return;
         this.state = 'celebrate';
         this.frame = 0;
-        this.celebrateTimer = 60; // Approx 2 seconds at current FPS
+        this.celebrateTimer = 120; // Approx 2 seconds at current FPS
         this.vx = 0;
     }
 }
