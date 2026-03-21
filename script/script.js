@@ -370,34 +370,44 @@ class Pet {
         this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
         this.image = new Image();
         this.image.src = `Sprites/pets/${name}.png`;
-        this.size = 40; // Slightly larger for better detail
+        this.size = 48; // Slightly larger for better detail
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = (petsCanvas.height - this.size) / 2;
-        this.vx = (Math.random() - 0.5) * 2;
+        this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
         this.state = 'walk';
         this.celebrateTimer = 0;
         this.direction = 1;
+        this.lastFrameUpdate = Date.now();
     }
 
     update() {
         const maxFrames = this.state === 'celebrate' ? this.config.celebrate : this.config.walk;
+        const now = Date.now();
+        const fps = this.state === 'celebrate' ? 100 : 120; // Animation speed in ms
+
+        if (now - this.lastFrameUpdate > fps) {
+            this.frame = (this.frame + 1) % maxFrames;
+            this.lastFrameUpdate = now;
+        }
+
         if (this.state === 'celebrate') {
             this.celebrateTimer--;
-            if (this.celebrateTimer <= 0) { this.state = 'walk'; this.frame = 0; }
-            if (Date.now() % 120 < 20) this.frame = (this.frame + 1) % maxFrames;
+            if (this.celebrateTimer <= 0) {
+                this.state = 'walk';
+                this.frame = 0;
+                this.vx = (Math.random() - 0.5) * 1.5;
+            }
         } else {
             this.x += this.vx;
             if (this.x < 0) { this.x = 0; this.vx *= -1; }
             else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx *= -1; }
             this.direction = this.vx > 0 ? 1 : -1;
-            if (Date.now() % 100 < 20) this.frame = (this.frame + 1) % maxFrames;
         }
     }
 
     draw(ctx) {
         const row = this.state === 'celebrate' ? 1 : 0;
-        const cols = this.state === 'celebrate' ? this.config.celebrate : this.config.walk;
         const s = this.size;
 
         ctx.save();
@@ -406,15 +416,14 @@ class Pet {
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
-                // ROBUST CROP: independent width per row + center square extraction
-                const sw = this.image.naturalWidth / cols;
+                // FIXED GRID: 8 columns, 2 rows (Walk on top, Celebrate below)
+                const sw = this.image.naturalWidth / 8;
                 const sh = this.image.naturalHeight / 2;
-                const boxSize = Math.min(sw, sh); // Extract center content square
-
+                
+                // Draw the specific frame from the grid
                 ctx.drawImage(this.image, 
-                    this.frame * sw + (sw - boxSize) / 2, 
-                    row * sh + (sh - boxSize) / 2, 
-                    boxSize, boxSize,
+                    this.frame * sw, row * sh, 
+                    sw, sh,
                     -s/2, -s/2, s, s);
             } else {
                 ctx.fillStyle = '#d4af37';
@@ -429,9 +438,11 @@ class Pet {
     }
 
     celebrate() {
+        if (this.state === 'celebrate') return;
         this.state = 'celebrate';
         this.frame = 0;
-        this.celebrateTimer = 120;
+        this.celebrateTimer = 180; // Duration of celebration in frames (approx 3 seconds)
+        this.vx = 0;
     }
 }
 
@@ -464,11 +475,18 @@ const MULTIPLIERS = {
 
 function resizeCanvases() {
     const gamePane = plinkoCanvas.parentElement;
-    plinkoCanvas.width = gamePane.clientWidth;
-    plinkoCanvas.height = gamePane.clientHeight;
+    if (!gamePane) return;
+    
+    // Use offsetWidth/Height for more reliable measurement during layout shifts
+    plinkoCanvas.width = gamePane.offsetWidth;
+    plinkoCanvas.height = gamePane.offsetHeight;
+    
     const petsPane = petsCanvas.parentElement;
-    petsCanvas.width = petsPane.clientWidth;
-    petsCanvas.height = petsPane.clientHeight;
+    if (petsPane) {
+        petsCanvas.width = petsPane.offsetWidth;
+        petsCanvas.height = petsPane.offsetHeight;
+    }
+    
     generateBoard();
 }
 
@@ -502,8 +520,27 @@ function generateBoard() {
     }
 }
 
+function updateControlsState() {
+    const isBusy = balls.length > 0;
+    
+    // Disable inputs and buttons when balls are active
+    betInput.disabled = isBusy;
+    minBetBtn.disabled = isBusy;
+    maxBetBtn.disabled = isBusy;
+    riskSelect.disabled = isBusy;
+    linesInput.disabled = isBusy;
+    
+    // Optional: Add visual feedback for disabled state
+    const controlsToFade = [betInput, minBetBtn, maxBetBtn, riskSelect, linesInput];
+    controlsToFade.forEach(el => {
+        el.style.opacity = isBusy ? '0.5' : '1';
+        el.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+    });
+}
+
 function draw() {
     updatePhysics();
+    updateControlsState();
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
     const gradient = plinkoCtx.createRadialGradient(plinkoCanvas.width / 2, plinkoCanvas.height / 2, 50, plinkoCanvas.width / 2, plinkoCanvas.height / 2, plinkoCanvas.width);
     gradient.addColorStop(0, '#1a1d2d'); gradient.addColorStop(1, '#0b0d17');
@@ -590,9 +627,19 @@ function draw() {
 
 window.onload = () => {
     initHUD();
+    // Initial resize
     resizeCanvases();
+    // Re-run after a short delay to catch any layout shifts after assets load
+    setTimeout(resizeCanvases, 100);
+    
     initPets();
     updateDisplay();
-    window.addEventListener('resize', resizeCanvases);
+    
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(resizeCanvases, 50);
+    });
+    
     draw();
 };
