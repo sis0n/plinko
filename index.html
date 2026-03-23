@@ -4,22 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RollyRoyal Plinko</title>
+    <link rel="icon" href="favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style/style.css">
 </head>
 <body>
     <div class="main-container">
         <!-- Top Section: Game and HUD -->
         <div class="top-section">
+            <aside class="history-pane">
+                <div class="hud-group">
+                    <label>Recent History</label>
+                    <div id="historyList" class="history-list">
+                        <!-- History entries will be added here -->
+                    </div>
+                </div>
+            </aside>
+
             <div class="game-pane">
+                <img src="favicon/android-chrome-512x512.png" alt="RollyRoyal Logo" class="game-logo">
                 <canvas id="plinkoCanvas"></canvas>
             </div>
             
             <aside class="hud-pane">
                 <div class="hud-group balance-section">
-                    <label>Balance</label>
-                    <div id="userBalance">$1000.00</div>
+                    <div class="hud-header">
+                        <label>Balance</label>
+                        <div class="hud-controls">
+                            <button id="tutorialBtn" class="icon-btn" title="How to Play">❓</button>
+                            <button id="musicToggle" class="icon-btn" title="Toggle Music">🎵</button>
+                            <button id="sfxToggle" class="icon-btn" title="Toggle SFX">🔊</button>
+                        </div>
+                    </div>
+                    <div id="userBalance">₱1000.00</div>
+                    <div id="streakDisplay" class="streak-display" style="display: none;"></div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
+
+                <audio id="bgMusic" loop>
+                    <source src="mp3/Michael Giacchino - Life s Incredible Again.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="collectSound">
+                    <source src="mp3/Collect-Item-Sound-Effect.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="paldoSound">
+                    <source src="mp3/paldo-nanaman.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="pegSound">
+                    <source src="mp3/sound2.wav" type="audio/wav">
+                </audio>
+                <audio id="playBtnSound">
+                    <source src="mp3/faaah.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="maxBetSound">
+                    <source src="mp3/anita-max-win.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="lossSound">
+                    <source src="mp3/malupiton-aray-ko.mp3" type="audio/mpeg">
+                </audio>
 
                 <div class="hud-group">
                     <label>Bet Amount</label>
@@ -30,6 +71,8 @@
                             <button id="maxBet">MAX</button>
                         </div>
                     </div>
+                    <div class="bet-presets" id="betPresets"></div>
+                    <div id="maxWinDisplay" class="max-win-display"></div>
                 </div>
 
                 <div class="hud-group">
@@ -46,15 +89,37 @@
                     <input type="range" id="linesCount" min="8" max="16" value="8">
                 </div>
 
-                <div class="hud-group">
-                    <label>Active Pets</label>
-                    <div class="pet-toggles" id="petToggles">
+                <div class="hud-group collapsible">
+                    <div id="petsToggleHeader" class="section-header">
+                        <label>Active Pets</label>
+                        <span id="petsToggleIcon" class="toggle-icon">▼</span>
+                    </div>
+                    <div class="pet-toggles collapsed" id="petToggles">
                         <!-- Toggles for Alwyn, Asher, Beto, Colmo, Gab, Kyle, Renz -->
                     </div>
                 </div>
 
+                <div class="hud-group collapsible">
+                    <div id="statsToggleHeader" class="section-header">
+                        <label>Statistics</label>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="stats-display collapsed" id="statsDisplay"></div>
+                </div>
+
+                <div class="hud-group">
+                    <label>Auto Play Speed</label>
+                    <select id="autoPlaySpeed">
+                        <option value="slow">Slow</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="fast">Fast</option>
+                        <option value="turbo">Turbo</option>
+                    </select>
+                </div>
+
                 <div class="actions">
                     <button id="playBtn" class="primary-btn">PLAY</button>
+                    <button id="autoPlayBtn" class="secondary-btn">AUTO PLAY</button>
                     <button id="receiptBtn" class="secondary-btn">Save Receipt</button>
                 </div>
             </aside>
@@ -65,6 +130,29 @@
             <canvas id="petsCanvas"></canvas>
         </div>
     </div>
+    <!-- Tutorial System -->
+    <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
+    <div id="tutorialBox" class="tutorial-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">RollyRoyal Guide</span>
+            <button id="skipTutorial" class="skip-link">Skip</button>
+        </div>
+        <div class="tutorial-content" id="tutorialContent">
+            <!-- Step content injected here -->
+        </div>
+        <div class="tutorial-footer">
+            <div class="step-dots" id="stepDots"></div>
+            <button id="nextStep" class="primary-btn tutorial-next">NEXT</button>
+        </div>
+    </div>
+
+    <div id="keyboardHint" class="keyboard-hint">
+        <div><kbd>Space</kbd> / <kbd>Enter</kbd> Rapid Fire Play!</div>
+        <div><kbd>M</kbd> Mute/Unmute</div>
+        <div><kbd>?</kbd> / <kbd>H</kbd> Help</div>
+        <div><kbd>Ctrl+R</kbd> Reset</div>
+    </div>
+
     <script src="script/script.js"></script>
 </body>
 </html>
