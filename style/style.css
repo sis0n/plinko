@@ -360,6 +360,64 @@ input, select {
     color: white;
     padding: 8px;
     border-radius: 4px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus {
+    border-color: var(--gold);
+    outline: none;
+    box-shadow: 0 0 5px rgba(212, 175, 55, 0.3);
+}
+
+.bet-input-wrapper {
+    display: flex;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.bet-input-wrapper:focus-within {
+    border-color: var(--gold);
+}
+
+.bet-input-wrapper input {
+    background: transparent;
+    border: none;
+    flex: 1;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 1rem;
+    min-width: 0;
+}
+
+.bet-shortcuts {
+    display: flex;
+    background: rgba(255,255,255,0.03);
+}
+
+.bet-shortcuts button {
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(255,255,255,0.1);
+    color: var(--gold);
+    padding: 0 15px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.bet-shortcuts button:hover {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-bright);
+}
+
+.bet-shortcuts button:active {
+    background: rgba(212, 175, 55, 0.2);
 }
 
 .tutorial-next {
