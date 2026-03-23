@@ -153,6 +153,7 @@ const musicToggle = document.getElementById('musicToggle');
 const sfxToggle = document.getElementById('sfxToggle');
 const bgMusic = document.getElementById('bgMusic');
 const collectSound = document.getElementById('collectSound');
+const paldoSound = document.getElementById('paldoSound');
 const pegSound = document.getElementById('pegSound');
 const playBtnSound = document.getElementById('playBtnSound');
 const maxBetSound = document.getElementById('maxBetSound');
@@ -406,6 +407,7 @@ function handleWin(multiplier, slotIdx, slot) {
             state.stats.longestStreak = state.winStreak;
         }
         playSound(collectSound);
+        playSound(paldoSound);
     } else {
         state.winStreak = 0;
         playSound(lossSound);
