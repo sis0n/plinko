@@ -30,6 +30,7 @@
                     <div class="hud-header">
                         <label>Balance</label>
                         <div class="hud-controls">
+                            <button id="zeroBalance" class="icon-btn" title="Set Balance to 0">0️⃣</button>
                             <button id="tutorialBtn" class="icon-btn" title="How to Play">❓</button>
                             <button id="musicToggle" class="icon-btn" title="Toggle Music">🎵</button>
                             <button id="sfxToggle" class="icon-btn" title="Toggle SFX">🔊</button>
@@ -53,13 +54,28 @@
                     <source src="mp3/sound2.wav" type="audio/wav">
                 </audio>
                 <audio id="playBtnSound">
-                    <source src="mp3/faaah.mp3" type="audio/mpeg">
+                    <source src="mp3/fahhhhh.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="minBetSound">
+                    <source src="mp3/gay_UtmZQwk.mp3" type="audio/mpeg">
                 </audio>
                 <audio id="maxBetSound">
                     <source src="mp3/anita-max-win.mp3" type="audio/mpeg">
                 </audio>
                 <audio id="lossSound">
                     <source src="mp3/malupiton-aray-ko.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="catLaughSound">
+                    <source src="mp3/cat-laugh-meme-1.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="tucoSound">
+                    <source src="mp3/tuco-get-out.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="tryAgainHoverSound">
+                    <source src="mp3/another-one_dPvHt2Z.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="cancelHoverSound">
+                    <source src="mp3/gay_UtmZQwk.mp3" type="audio/mpeg">
                 </audio>
 
                 <div class="hud-group">
@@ -120,7 +136,7 @@
                 <div class="actions">
                     <button id="playBtn" class="primary-btn">PLAY</button>
                     <button id="autoPlayBtn" class="secondary-btn">AUTO PLAY</button>
-                    <button id="receiptBtn" class="secondary-btn">Save Receipt</button>
+                    <button id="receiptBtn" class="secondary-btn">SAVE RECIEPT</button>
                 </div>
             </aside>
         </div>
@@ -130,6 +146,18 @@
             <canvas id="petsCanvas"></canvas>
         </div>
     </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverOverlay" class="tutorial-overlay hidden"></div>
+    <div id="gameOverBox" class="tutorial-box game-over-box hidden">
+        <h2 class="game-over-title">YOU LOSE</h2>
+        <img src="Sprites/tenor.gif" alt="You Lose" class="game-over-gif">
+        <div class="game-over-actions">
+            <button id="tryAgainBtn" class="primary-btn">Try Again</button>
+            <button id="cancelGameOverBtn" class="secondary-btn">Cancel</button>
+        </div>
+    </div>
+
     <!-- Tutorial System -->
     <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
     <div id="tutorialBox" class="tutorial-box hidden">

@@ -55,7 +55,7 @@ const TUTORIAL_STEPS = [
     { title: "Lines (Pegs)", content: "Adjust the number of peg rows (8 to 16 lines). More lines mean more multiplier slots and higher jackpot potential!", target: ".hud-group:has(#linesCount)" },
     { title: "Lucky Pets", content: "Meet your team! Select which pets you want to see. They will celebrate with you whenever you hit those big multipliers!", target: ".collapsible" },
     { title: "Auto-Play Mode", content: "Want to sit back and watch? Use <b>AUTO PLAY</b> to automatically drop balls at your chosen speed. Build win streaks for bonus multipliers!", target: "#autoPlayBtn" },
-    { title: "Digital Receipt", content: "Want to flex your win? Click <b>Save Receipt</b>! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
+    { title: "Digital Receipt", content: "Want to flex your win? Click <b>s</b>! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
     { title: "Pets Playground", content: "At the bottom, your selected pets walk and play. Watch them celebrate your victories in real-time!", target: ".pets-section" },
     { title: "Ready, Set, PLAY!", content: "Everything is set! Click <b>PLAY</b> to drop a ball, or spam it for rapid-fire action! Build win streaks 🔥 for bonus multipliers. Good luck!", target: "#playBtn" }
 ];
@@ -78,6 +78,69 @@ function playSound(audio) {
     if (!audio || state.isSfxMuted) return;
     audio.currentTime = 0;
     audio.play().catch(() => {});
+}
+
+// ============================================================================
+// CUSTOM MODAL SYSTEM
+// ============================================================================
+let activeModalResolve = null;
+
+function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
+    return new Promise((resolve) => {
+        activeModalResolve = resolve;
+        
+        const overlay = document.getElementById('tutorialOverlay');
+        const box = document.getElementById('tutorialBox');
+        const contentEl = document.getElementById('tutorialContent');
+        const nextBtn = document.getElementById('nextStep');
+        const skipBtn = document.getElementById('skipTutorial');
+        const dots = document.getElementById('stepDots');
+
+        contentEl.innerHTML = `<h3 style="color: var(--gold); margin-bottom: 10px;">${title}</h3><p style="text-align: center; margin: 20px 0;">${content}</p>`;
+        
+        if (dots) dots.style.display = 'none';
+
+        nextBtn.textContent = confirmText;
+        nextBtn.onclick = () => {
+            closeCustomModal();
+            if (activeModalResolve) activeModalResolve(true);
+        };
+
+        if (isConfirm) {
+            skipBtn.textContent = cancelText;
+            skipBtn.style.display = 'inline-block';
+            skipBtn.onclick = () => {
+                closeCustomModal();
+                if (activeModalResolve) activeModalResolve(false);
+            };
+        } else {
+            skipBtn.style.display = 'none';
+        }
+
+        overlay.classList.remove('hidden');
+        box.classList.remove('hidden');
+    });
+}
+
+function closeCustomModal() {
+    document.getElementById('tutorialOverlay').classList.add('hidden');
+    document.getElementById('tutorialBox').classList.add('hidden');
+    const nextBtn = document.getElementById('nextStep');
+    const skipBtn = document.getElementById('skipTutorial');
+    nextBtn.onclick = nextTutorialStep;
+    skipBtn.onclick = endTutorial;
+    skipBtn.textContent = 'Skip';
+    skipBtn.style.display = 'inline-block';
+    const dots = document.getElementById('stepDots');
+    if (dots) dots.style.display = 'flex';
+}
+
+function showAlert(message) {
+    return showCustomModal('Babala', message, false, 'Sige 👌', '');
+}
+
+function showConfirm(message) {
+    return showCustomModal('Kumpirmasyon', message, true, 'Oo ✅', 'Hindi ❌');
 }
 
 // ============================================================================
@@ -104,7 +167,8 @@ let state = {
         biggestWin: 0,
         biggestMultiplier: 0,
         longestStreak: 0
-    })
+    }),
+    isGameOver: false
 };
 
 function saveState() {
@@ -157,6 +221,7 @@ const paldoSound = document.getElementById('paldoSound');
 const pegSound = document.getElementById('pegSound');
 const playBtnSound = document.getElementById('playBtnSound');
 const maxBetSound = document.getElementById('maxBetSound');
+const minBetSound = document.getElementById('minBetSound');
 const lossSound = document.getElementById('lossSound');
 
 // ============================================================================
@@ -172,20 +237,29 @@ function startTutorial() {
 
 function updateTutorialStep() {
     const step = TUTORIAL_STEPS[state.tutorialStep];
-    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    const highlightElements = document.querySelectorAll('.highlight-element');
+    highlightElements.forEach(el => el.classList.remove('highlight-element'));
 
-    document.getElementById('tutorialContent').innerHTML = `
-        <h3 style="color: var(--gold); margin-bottom: 10px;">${step.title}</h3>
-        <p>${step.content}</p>
-    `;
+    const contentEl = document.getElementById('tutorialContent');
+    if (contentEl) {
+        contentEl.innerHTML = `
+            <h3 style="color: var(--gold); margin-bottom: 10px;">${step.title}</h3>
+            <p>${step.content}</p>
+        `;
+    }
 
     const targetEl = document.querySelector(step.target);
     if (targetEl) targetEl.classList.add('highlight-element');
 
-    document.getElementById('nextStep').textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
-    document.getElementById('stepDots').innerHTML = TUTORIAL_STEPS.map((_, i) =>
-        `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
-    ).join('');
+    const nextBtn = document.getElementById('nextStep');
+    if (nextBtn) nextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
+    
+    const dotsEl = document.getElementById('stepDots');
+    if (dotsEl) {
+        dotsEl.innerHTML = TUTORIAL_STEPS.map((_, i) =>
+            `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
+        ).join('');
+    }
 }
 
 function nextTutorialStep() {
@@ -392,6 +466,14 @@ function updatePhysics() {
         p.rotation += p.rotationSpeed;
         if (p.life <= 0 || p.y > plinkoCanvas.height) confetti.splice(i, 1);
     }
+
+    if (balls.length === 0 && state.balance < CONFIG.MIN_BET) {
+        if (!state.isGameOver) {
+            showGameOver();
+        }
+    } else if (balls.length === 0 && state.balance >= CONFIG.MIN_BET) {
+        state.isGameOver = false;
+    }
 }
 
 function handleWin(multiplier, slotIdx, slot) {
@@ -450,8 +532,50 @@ function handleWin(multiplier, slotIdx, slot) {
     }
 }
 
+function showGameOver() {
+    state.isGameOver = true;
+    if (state.autoPlay) {
+        const autoBtn = document.getElementById('autoPlayBtn');
+        if (autoBtn) autoBtn.click(); // Turn off autoplay by simulating click
+    }
+    const overlay = document.getElementById('gameOverOverlay');
+    const box = document.getElementById('gameOverBox');
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+    
+    const catLaugh = document.getElementById('catLaughSound');
+    const tuco = document.getElementById('tucoSound');
+    
+    if (!state.isSfxMuted) {
+        if (catLaugh) {
+            catLaugh.currentTime = 0;
+            catLaugh.play().catch(() => {});
+            
+            catLaugh.onended = () => {
+                if (!state.isSfxMuted && state.isGameOver && tuco) {
+                    tuco.currentTime = 0;
+                    tuco.play().catch(() => {});
+                }
+            };
+        }
+    }
+}
+
+function hideGameOver() {
+    state.isGameOver = false;
+    const overlay = document.getElementById('gameOverOverlay');
+    const box = document.getElementById('gameOverBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+    
+    const catLaugh = document.getElementById('catLaughSound');
+    const tuco = document.getElementById('tucoSound');
+    if (catLaugh) catLaugh.pause();
+    if (tuco) tuco.pause();
+}
+
 function updateDisplay() {
-    balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
+    if (balanceEl) balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
 
     const streakEl = document.getElementById('streakDisplay');
     if (streakEl) {
@@ -491,6 +615,7 @@ function updateStatsDisplay() {
 
 function addHistoryEntry(bet, multi) {
     const historyList = document.getElementById('historyList');
+    if (!historyList) return;
     const profit = bet * multi;
     const entry = document.createElement('div');
     entry.className = 'history-entry';
@@ -554,12 +679,16 @@ function resizeCanvases() {
 
 function updateControlsState() {
     const isBusy = balls.length > 0;
-    document.getElementById('riskLevel').disabled = isBusy;
-    document.getElementById('linesCount').disabled = isBusy;
+    const riskEl = document.getElementById('riskLevel');
+    const linesEl = document.getElementById('linesCount');
+    if (riskEl) riskEl.disabled = isBusy;
+    if (linesEl) linesEl.disabled = isBusy;
 
-    [document.getElementById('riskLevel'), document.getElementById('linesCount')].forEach(el => {
-        el.style.opacity = isBusy ? '0.5' : '1';
-        el.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+    [riskEl, linesEl].forEach(el => {
+        if (el) {
+            el.style.opacity = isBusy ? '0.5' : '1';
+            el.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+        }
     });
 }
 
@@ -599,8 +728,7 @@ function draw() {
         slot.color = baseColor;
 
         const pulse = slotPulses.find(p => p.slotIndex === idx);
-        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.15 : 1;
-        const heat = slotHeat[idx] || 0;
+        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.15 : 1; const heat = slotHeat[idx] || 0;
 
         plinkoCtx.save();
         plinkoCtx.translate(slot.x + slot.width / 2, slot.y + slot.height / 2);
@@ -715,55 +843,69 @@ function initHUD() {
     });
 
     // Tutorial
-    document.getElementById('tutorialBtn').addEventListener('click', startTutorial);
-    document.getElementById('nextStep').addEventListener('click', nextTutorialStep);
-    document.getElementById('skipTutorial').addEventListener('click', endTutorial);
+    const tutorialBtn = document.getElementById('tutorialBtn');
+    if (tutorialBtn) tutorialBtn.addEventListener('click', startTutorial);
+    const nextStepBtn = document.getElementById('nextStep');
+    if (nextStepBtn) nextStepBtn.addEventListener('click', nextTutorialStep);
+    const skipTutorialBtn = document.getElementById('skipTutorial');
+    if (skipTutorialBtn) skipTutorialBtn.addEventListener('click', endTutorial);
     setTimeout(startTutorial, 500);
 
     // Pet toggles
     const petTogglesEl = document.getElementById('petToggles');
-    PET_NAMES.forEach(name => {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `
-            <input type="checkbox" id="pet-${name}" class="pet-checkbox" checked>
-            <label for="pet-${name}" class="pet-label">${name}</label>
-        `;
-        const checkbox = wrapper.querySelector('input');
-        checkbox.addEventListener('change', (e) => {
-            if (e.target.checked) state.activePets.add(name);
-            else state.activePets.delete(name);
+    if (petTogglesEl) {
+        PET_NAMES.forEach(name => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+                <input type="checkbox" id="pet-${name}" class="pet-checkbox" checked>
+                <label for="pet-${name}" class="pet-label">${name}</label>
+            `;
+            const checkbox = wrapper.querySelector('input');
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) state.activePets.add(name);
+                else state.activePets.delete(name);
+            });
+            petTogglesEl.appendChild(wrapper.firstElementChild);
+            petTogglesEl.appendChild(wrapper.lastElementChild);
         });
-        petTogglesEl.appendChild(wrapper.firstElementChild);
-        petTogglesEl.appendChild(wrapper.lastElementChild);
-    });
+    }
 
     // Bet controls
-    betInput.addEventListener('change', (e) => {
-        state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
-        betInput.value = state.bet.toFixed(2);
-        updateDisplay();
-    });
-
-    betInput.addEventListener('input', () => {
-        const value = parseFloat(betInput.value);
-        if (!isNaN(value) && value >= CONFIG.MIN_BET) {
-            state.bet = value;
+    if (betInput) {
+        betInput.addEventListener('change', (e) => {
+            state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
+            betInput.value = state.bet.toFixed(2);
             updateDisplay();
-        }
-    });
+        });
 
-    document.getElementById('minBet').addEventListener('click', () => {
-        state.bet = CONFIG.MIN_BET;
-        betInput.value = state.bet.toFixed(2);
-        updateDisplay();
-    });
+        betInput.addEventListener('input', () => {
+            const value = parseFloat(betInput.value);
+            if (!isNaN(value) && value >= CONFIG.MIN_BET) {
+                state.bet = value;
+                updateDisplay();
+            }
+        });
+    }
 
-    document.getElementById('maxBet').addEventListener('click', () => {
-        state.bet = Math.max(CONFIG.MIN_BET, state.balance);
-        betInput.value = state.bet.toFixed(2);
-        playSound(maxBetSound);
-        updateDisplay();
-    });
+    const minBetBtn = document.getElementById('minBet');
+    if (minBetBtn) {
+        minBetBtn.addEventListener('click', () => {
+            state.bet = CONFIG.MIN_BET;
+            if (betInput) betInput.value = state.bet.toFixed(2);
+            playSound(minBetSound);
+            updateDisplay();
+        });
+    }
+
+    const maxBetBtn = document.getElementById('maxBet');
+    if (maxBetBtn) {
+        maxBetBtn.addEventListener('click', () => {
+            state.bet = Math.max(CONFIG.MIN_BET, state.balance);
+            if (betInput) betInput.value = state.bet.toFixed(2);
+            playSound(maxBetSound);
+            updateDisplay();
+        });
+    }
 
     // Bet presets
     const presetsEl = document.getElementById('betPresets');
@@ -775,7 +917,7 @@ function initHUD() {
             btn.addEventListener('click', () => {
                 if (amount <= state.balance) {
                     state.bet = amount;
-                    betInput.value = state.bet.toFixed(2);
+                    if (betInput) betInput.value = state.bet.toFixed(2);
                     updateDisplay();
                 }
             });
@@ -784,68 +926,118 @@ function initHUD() {
     }
 
     // Game settings
-    document.getElementById('riskLevel').addEventListener('change', (e) => {
-        state.risk = e.target.value;
-        generateBoard();
-        updateDisplay();
-    });
-
-    document.getElementById('linesCount').addEventListener('input', (e) => {
-        state.lines = parseInt(e.target.value);
-        document.getElementById('lineValue').textContent = state.lines;
-        generateBoard();
-        updateDisplay();
-    });
-
-    document.getElementById('resetBalance').addEventListener('click', () => {
-        if (confirm('Reset balance and statistics?')) {
-            state.balance = CONFIG.INITIAL_BALANCE;
-            state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
-            state.winStreak = 0;
-            saveState();
+    const riskEl = document.getElementById('riskLevel');
+    if (riskEl) {
+        riskEl.addEventListener('change', (e) => {
+            state.risk = e.target.value;
+            generateBoard();
             updateDisplay();
-            updateStatsDisplay();
-        }
-    });
+        });
+    }
+
+    const linesEl = document.getElementById('linesCount');
+    if (linesEl) {
+        linesEl.addEventListener('input', (e) => {
+            state.lines = parseInt(e.target.value);
+            const lineValEl = document.getElementById('lineValue');
+            if (lineValEl) lineValEl.textContent = state.lines;
+            generateBoard();
+            updateDisplay();
+        });
+    }
+
+    const resetBtn = document.getElementById('resetBalance');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            if (await showConfirm('I-reset ang balanse at estadistika?')) {
+                state.balance = CONFIG.INITIAL_BALANCE;
+                state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                state.winStreak = 0;
+                saveState();
+                updateDisplay();
+                updateStatsDisplay();
+            }
+        });
+    }
+
+    const zeroBtn = document.getElementById('zeroBalance');
+    if (zeroBtn) {
+        zeroBtn.addEventListener('click', async () => {
+            if (await showConfirm('Sigurado ka ba? Magiging ZERO ang balance mo at matalo ka agad! 😱')) {
+                state.balance = 0;
+                saveState();
+                updateDisplay();
+                showGameOver();
+            }
+        });
+    }
 
     // Sound controls
-    bgMusic.volume = 0.5;
-    bgMusic.muted = state.isMusicMuted;
-    musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
-    sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
-
-    musicToggle.addEventListener('click', () => {
-        state.isMusicMuted = !state.isMusicMuted;
+    if (bgMusic) {
+        bgMusic.volume = 0.5;
         bgMusic.muted = state.isMusicMuted;
-        musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
-        saveState();
-    });
+    }
+    if (musicToggle) musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
+    if (sfxToggle) sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
 
-    sfxToggle.addEventListener('click', () => {
-        state.isSfxMuted = !state.isSfxMuted;
-        sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
-        saveState();
-    });
+    if (musicToggle) {
+        musicToggle.addEventListener('click', () => {
+            state.isMusicMuted = !state.isMusicMuted;
+            if (bgMusic) bgMusic.muted = state.isMusicMuted;
+            musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
+            saveState();
+        });
+    }
+
+    if (sfxToggle) {
+        sfxToggle.addEventListener('click', () => {
+            state.isSfxMuted = !state.isSfxMuted;
+            sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
+            saveState();
+        });
+    }
 
     const startMusic = () => {
-        bgMusic.play().catch(() => {});
+        if (bgMusic) bgMusic.play().catch(() => {});
         document.removeEventListener('click', startMusic);
     };
     document.addEventListener('click', startMusic);
 
     // Play
-    const handlePlay = () => {
+    const handlePlay = async () => {
         if (state.balance >= state.bet) {
             state.balance -= state.bet;
             saveState();
             updateDisplay();
             dropBall();
         } else {
-            alert('Insufficient balance!');
+            await showAlert('UBOS NA!', 'Oops! Ubos na ang iyong balance. Mag-reset muna tayo sa taas para makapag-play ulit! 💸');
         }
     };
 
-    playBtn.addEventListener('click', handlePlay);
+    if (playBtn) playBtn.addEventListener('click', handlePlay);
+
+    // Game Over Actions
+    const tryAgainBtn = document.getElementById('tryAgainBtn');
+    const cancelGameOverBtn = document.getElementById('cancelGameOverBtn');
+    const tryAgainHoverSound = document.getElementById('tryAgainHoverSound');
+    const cancelHoverSound = document.getElementById('cancelHoverSound');
+
+    if (tryAgainBtn) {
+        tryAgainBtn.addEventListener('mouseenter', () => { playSound(tryAgainHoverSound); });
+        tryAgainBtn.addEventListener('click', () => {
+            hideGameOver();
+            const resetBtn = document.getElementById('resetBalance');
+            if (resetBtn) resetBtn.click();
+        });
+    }
+
+    if (cancelGameOverBtn) {
+        cancelGameOverBtn.addEventListener('mouseenter', () => { playSound(cancelHoverSound); });
+        cancelGameOverBtn.addEventListener('click', () => {
+            hideGameOver();
+        });
+    }
 
     // Auto-play
     const autoPlayBtn = document.getElementById('autoPlayBtn');
@@ -868,12 +1060,17 @@ function initHUD() {
 
     function startAutoPlay() {
         state.autoPlay = true;
-        autoPlayBtn.textContent = 'STOP AUTO';
-        autoPlayBtn.classList.add('active');
+        if (autoPlayBtn) {
+            autoPlayBtn.textContent = 'STOP AUTO';
+            autoPlayBtn.classList.add('active');
+        }
         const speed = CONFIG.AUTOPLAY_SPEEDS[state.autoPlaySpeed];
-        state.autoPlayInterval = setInterval(() => {
+        state.autoPlayInterval = setInterval(async () => {
             if (state.balance >= state.bet) handlePlay();
-            else { stopAutoPlay(); alert('Insufficient balance!'); }
+            else { 
+                stopAutoPlay(); 
+                await showAlert('UBOS NA!', 'Tumigil ang Auto Play dahil wala ka na palang bala. Reset na! 💸');
+            }
         }, speed);
     }
 
@@ -883,17 +1080,22 @@ function initHUD() {
             clearInterval(state.autoPlayInterval);
             state.autoPlayInterval = null;
         }
-        autoPlayBtn.textContent = 'AUTO PLAY';
-        autoPlayBtn.classList.remove('active');
+        if (autoPlayBtn) {
+            autoPlayBtn.textContent = 'AUTO PLAY';
+            autoPlayBtn.classList.remove('active');
+        }
     }
 
     // Receipt
-    document.getElementById('receiptBtn').addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.download = `RollyRoyal-Receipt-${Date.now()}.png`;
-        link.href = plinkoCanvas.toDataURL();
-        link.click();
-    });
+    const receiptBtn = document.getElementById('receiptBtn');
+    if (receiptBtn) {
+        receiptBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `RollyRoyal-Receipt-${Date.now()}.png`;
+            link.href = plinkoCanvas.toDataURL();
+            link.click();
+        });
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -906,15 +1108,16 @@ function initHUD() {
                 handlePlay();
                 break;
             case 'm':
-                musicToggle.click();
+                if (musicToggle) musicToggle.click();
                 break;
             case 's':
-                sfxToggle.click();
+                if (sfxToggle) sfxToggle.click();
                 break;
             case 'r':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    document.getElementById('resetBalance').click();
+                    const resetBtn = document.getElementById('resetBalance');
+                    if (resetBtn) resetBtn.click();
                 }
                 break;
             case '?':
