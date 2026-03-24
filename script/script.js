@@ -27,7 +27,7 @@ const CONFIG = {
     TRAIL_LENGTH: 8,
     CONFETTI_COUNT: 50,
     CONFETTI_THRESHOLD: 10,
-    PET_SIZE: 100,
+    PET_SIZE: 80,
     AUTOPLAY_SPEEDS: { slow: 1500, normal: 800, fast: 400, turbo: 150 },
     STREAK_BONUS_START: 3,
     STREAK_BONUS_RATE: 0.1,
@@ -136,16 +136,49 @@ function closeCustomModal() {
 }
 
 function showAlert(message) {
-    return showCustomModal('Babala', message, false, 'Sige 👌', '');
+    return showCustomModal('Warning', message, false, 'Okay 👌', '');
 }
 
 function showConfirm(message) {
-    return showCustomModal('Kumpirmasyon', message, true, 'Oo ✅', 'Hindi ❌');
+    return showCustomModal('Confirmation', message, true, 'Yes ✅', 'No ❌');
 }
 
 // ============================================================================
-// STATE
+// STATE & SOUNDS
 // ============================================================================
+// Pre-load sounds to prevent "sapawan" (overlapping) and improve performance
+const SOUNDS = {
+    winNormal: new Audio('mp3/kaching-sound-fx.mp3'),
+    winHigh: new Audio('mp3/lets-go-gambling-win.mp3'),
+    winJackpot: new Audio('mp3/paldo-nanaman.mp3'),
+    lossLow: new Audio('mp3/malupiton-aray-ko.mp3'),
+    lossHigh: new Audio('mp3/fahhhhh.mp3'),
+    play1: new Audio('mp3/gunshotjbudden.mp3'),
+    play2: new Audio('mp3/pistol-sound-effect_zejYI9w.mp3')
+};
+
+// Lower default volume to prevent deafening noise during multi-wins
+Object.values(SOUNDS).forEach(audio => audio.volume = 0.4);
+
+function playSound(audio) {
+    if (!audio || state.isSfxMuted) return;
+    
+    const now = Date.now();
+    // Throttle: Prevent the same sound from stuttering if played within 150ms
+    if (audio.lastPlayed && (now - audio.lastPlayed) < 150) {
+        return;
+    }
+    
+    // Ensure standard sounds also get lowered volume if not in SOUNDS object
+    if (audio.volume === 1) {
+        audio.volume = 0.4;
+    }
+    
+    audio.lastPlayed = now;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+}
+
 let state = {
     balance: Storage.get('balance', CONFIG.INITIAL_BALANCE),
     bet: 10.00,
@@ -285,37 +318,43 @@ function endTutorial() {
 class Pet {
     constructor(name) {
         this.name = name;
-        this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
+        this.config = PET_CONFIGS[name] || { walk: 10, celebrate: 10 };
         this.image = new Image();
-        this.image.src = `Sprites/pets/${name}.png`;
-        this.size = CONFIG.PET_SIZE;
+        // Adjust for casing in LABOBO filenames
+        const fileName = name === 'alwyn' ? 'Alwyn' : 
+                         name === 'beto' ? 'Beto' : 
+                         name === 'gab' ? 'Gab' : 
+                         name === 'kyle' ? 'kyle' : 
+                         name === 'Renz' ? 'Renz' : 
+                         name === 'Colmo' ? 'Colmo' :
+                         name === 'Asher' ? 'Asher' : name;
+        this.image.src = `Sprites/LABOBO/${fileName}.png`;
+        this.size = CONFIG.PET_SIZE * 1.5; // Make them bigger
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = petsCanvas.height - this.size - 5;
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
-        this.state = 'walk';
-        this.celebrateTimer = 0;
+        this.state = 'happy'; // happy, sad, jackpot
+        this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
     }
 
     update() {
-        const maxFrames = this.state === 'celebrate' ? this.config.celebrate : this.config.walk;
+        const maxFrames = 5; // LABOBO sprites are usually 5 columns wide
         const now = Date.now();
-        const fps = this.state === 'celebrate' ? 120 : 150;
+        const fps = this.state === 'jackpot' ? 100 : 150;
 
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
             this.lastFrameUpdate = now;
         }
 
-        if (this.state === 'celebrate') {
-            this.celebrateTimer--;
-            if (this.celebrateTimer <= 0) {
-                this.state = 'walk';
-                this.frame = 0;
+        if (this.state === 'jackpot') {
+            this.timer--;
+            if (this.timer <= 0) {
+                this.state = 'happy';
                 this.vx = (Math.random() - 0.5) * 1.5;
-                this.direction = this.vx > 0 ? 1 : -1;
             }
         } else {
             this.x += this.vx;
@@ -328,7 +367,8 @@ class Pet {
     }
 
     draw(ctx) {
-        const row = this.state === 'celebrate' ? 1 : 0;
+        // Row 0: Happy walk, Row 1: Sad walk, Row 2: Jackpot jump
+        const row = this.state === 'jackpot' ? 2 : (this.state === 'sad' ? 1 : 0);
         const s = this.size;
 
         ctx.save();
@@ -337,15 +377,16 @@ class Pet {
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
-                const sw = Math.floor(this.image.naturalWidth / 10);
-                const sh = Math.floor(this.image.naturalHeight / 2);
+                // Fix cropping: Divide width by 5 for columns
+                const sw = this.image.naturalWidth / 5;
+                const sh = this.image.naturalHeight / 3;
                 const aspect = sw / sh;
                 const drawH = s;
                 const drawW = s * aspect;
 
                 ctx.drawImage(this.image,
-                    Math.floor(this.frame * sw) + 1, Math.floor(row * sh) + 1,
-                    sw - 2, sh - 2,
+                    this.frame * sw, row * sh,
+                    sw, sh,
                     -drawW/2, -drawH/2, drawW, drawH);
             } else {
                 ctx.fillStyle = '#d4af37';
@@ -359,12 +400,19 @@ class Pet {
         ctx.restore();
     }
 
-    celebrate() {
-        if (this.state === 'celebrate') return;
-        this.state = 'celebrate';
-        this.frame = 0;
-        this.celebrateTimer = 120;
-        this.vx = 0;
+    celebrate(actualMulti) {
+        if (actualMulti >= 10) {
+            this.state = 'jackpot';
+            this.timer = 180;
+            this.vx = 0;
+            this.frame = 0;
+        } else if (actualMulti >= 1) {
+            this.state = 'happy';
+            if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+        } else {
+            this.state = 'sad';
+            if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+        }
     }
 }
 
@@ -372,7 +420,8 @@ class Pet {
 // GAME FUNCTIONS
 // ============================================================================
 function dropBall() {
-    playSound(playBtnSound);
+    const randomPlaySound = Math.random() > 0.5 ? SOUNDS.play1 : SOUNDS.play2;
+    playSound(randomPlaySound);
     const spacing = Math.min(plinkoCanvas.width / (state.lines + 2), plinkoCanvas.height / (state.lines + 3));
     const ballX = plinkoCanvas.width / 2 + (Math.random() - 0.5) * 10;
 
@@ -488,8 +537,15 @@ function handleWin(multiplier, slotIdx, slot) {
         if (state.winStreak > state.stats.longestStreak) {
             state.stats.longestStreak = state.winStreak;
         }
-        playSound(collectSound);
-        playSound(paldoSound);
+
+        // Win sounds based on multiplier
+        if (actualMulti >= 10) {
+            playSound(new Audio('mp3/paldo-nanaman.mp3'));
+        } else if (actualMulti >= 3) {
+            playSound(new Audio('mp3/lets-go-gambling-win.mp3'));
+        } else {
+            playSound(new Audio('mp3/kaching-sound-fx.mp3'));
+        }
     } else {
         state.winStreak = 0;
         playSound(lossSound);
@@ -524,15 +580,13 @@ function handleWin(multiplier, slotIdx, slot) {
         winEffects.push({ text, x: plinkoCanvas.width / 2, y: plinkoCanvas.height / 2, opacity: 1, rotation: 0 });
     }
 
-    if (actualMulti > 2) {
-        pets.forEach(p => { if (state.activePets.has(p.name)) p.celebrate(); });
-    } else if (actualMulti >= 1) {
-        const active = pets.filter(p => state.activePets.has(p.name));
-        if (active.length > 0) active[Math.floor(Math.random() * active.length)].celebrate();
-    }
+    pets.forEach(p => { 
+        if (state.activePets.has(p.name)) p.celebrate(actualMulti); 
+    });
 }
 
 function showGameOver() {
+    if (state.isGameOver && !document.getElementById('gameOverOverlay').classList.contains('hidden')) return;
     state.isGameOver = true;
     if (state.autoPlay) {
         const autoBtn = document.getElementById('autoPlayBtn');
@@ -562,7 +616,7 @@ function showGameOver() {
 }
 
 function hideGameOver() {
-    state.isGameOver = false;
+    // state.isGameOver intentionally NOT set to false here to prevent physics loop re-triggering
     const overlay = document.getElementById('gameOverOverlay');
     const box = document.getElementById('gameOverBox');
     if (overlay) overlay.classList.add('hidden');
@@ -849,7 +903,10 @@ function initHUD() {
     if (nextStepBtn) nextStepBtn.addEventListener('click', nextTutorialStep);
     const skipTutorialBtn = document.getElementById('skipTutorial');
     if (skipTutorialBtn) skipTutorialBtn.addEventListener('click', endTutorial);
-    setTimeout(startTutorial, 500);
+    
+    if (!Storage.get('tutorialDone', false)) {
+        setTimeout(startTutorial, 500);
+    }
 
     // Pet toggles
     const petTogglesEl = document.getElementById('petToggles');
@@ -949,13 +1006,14 @@ function initHUD() {
     const resetBtn = document.getElementById('resetBalance');
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
-            if (await showConfirm('I-reset ang balanse at estadistika?')) {
+            if (await showConfirm('Reset balance and statistics?')) {
                 state.balance = CONFIG.INITIAL_BALANCE;
                 state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
                 state.winStreak = 0;
                 saveState();
                 updateDisplay();
                 updateStatsDisplay();
+                hideGameOver();
             }
         });
     }
@@ -963,7 +1021,7 @@ function initHUD() {
     const zeroBtn = document.getElementById('zeroBalance');
     if (zeroBtn) {
         zeroBtn.addEventListener('click', async () => {
-            if (await showConfirm('Sigurado ka ba? Magiging ZERO ang balance mo at matalo ka agad! 😱')) {
+            if (await showConfirm('Are you sure? Your balance will be ZERO and you will lose immediately! 😱')) {
                 state.balance = 0;
                 saveState();
                 updateDisplay();
@@ -1011,7 +1069,7 @@ function initHUD() {
             updateDisplay();
             dropBall();
         } else {
-            await showAlert('UBOS NA!', 'Oops! Ubos na ang iyong balance. Mag-reset muna tayo sa taas para makapag-play ulit! 💸');
+            await showAlert('OUT OF FUNDS!', 'Oops! You are out of balance. Reset at the top to play again! 💸');
         }
     };
 
@@ -1069,7 +1127,7 @@ function initHUD() {
             if (state.balance >= state.bet) handlePlay();
             else { 
                 stopAutoPlay(); 
-                await showAlert('UBOS NA!', 'Tumigil ang Auto Play dahil wala ka na palang bala. Reset na! 💸');
+                await showAlert('OUT OF FUNDS!', 'Auto Play stopped because you ran out of funds. Reset now! 💸');
             }
         }, speed);
     }
