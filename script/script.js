@@ -1,5 +1,5 @@
 /**
- * RollyRoyal Plinko - Premium Edition with Sound Effects
+ * RollyRoyal Plinko - Premium Edition with RGB Lights
  *
  * Features:
  * ✓ Auto-play with speed control
@@ -12,6 +12,8 @@
  * ✓ Keyboard shortcuts
  * ✓ Sound effects (music + SFX)
  * ✓ Performance optimized
+ * ✓ Reactive RGB Border Lights (Idle, Auto-Play Circulate, Win, Lose, Jackpot)
+ * ✓ Fixed Modal/Tutorial Event Bug
  */
 
 // ============================================================================
@@ -31,7 +33,8 @@ const CONFIG = {
     AUTOPLAY_SPEEDS: { slow: 1500, normal: 800, fast: 400, turbo: 150 },
     STREAK_BONUS_START: 3,
     STREAK_BONUS_RATE: 0.1,
-    PRESETS: [5, 10, 25, 50, 100]
+    PRESETS: [5, 10, 25, 50, 100],
+    BORDER_LIGHT_COUNT: 24 // Dami ng bumbilya sa bawat gilid
 };
 
 const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
@@ -74,12 +77,6 @@ const Storage = {
     }
 };
 
-function playSound(audio) {
-    if (!audio || state.isSfxMuted) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => { });
-}
-
 // ============================================================================
 // CUSTOM MODAL SYSTEM
 // ============================================================================
@@ -100,7 +97,7 @@ function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
 
         if (dots) dots.style.display = 'none';
 
-        nextBtn.textContent = confirmText;
+        // Override using .onclick instead of addEventListener to prevent double triggers
         nextBtn.onclick = () => {
             closeCustomModal();
             if (activeModalResolve) activeModalResolve(true);
@@ -125,12 +122,19 @@ function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
 function closeCustomModal() {
     document.getElementById('tutorialOverlay').classList.add('hidden');
     document.getElementById('tutorialBox').classList.add('hidden');
+    
     const nextBtn = document.getElementById('nextStep');
     const skipBtn = document.getElementById('skipTutorial');
-    nextBtn.onclick = nextTutorialStep;
-    skipBtn.onclick = endTutorial;
-    skipBtn.textContent = 'Skip';
-    skipBtn.style.display = 'inline-block';
+    
+    // Restore original tutorial handlers safely
+    if (nextBtn) nextBtn.onclick = nextTutorialStep;
+    if (skipBtn) skipBtn.onclick = endTutorial;
+    
+    if (skipBtn) {
+        skipBtn.textContent = 'Skip';
+        skipBtn.style.display = 'inline-block';
+    }
+    
     const dots = document.getElementById('stepDots');
     if (dots) dots.style.display = 'flex';
 }
@@ -146,7 +150,6 @@ function showConfirm(message) {
 // ============================================================================
 // STATE & SOUNDS
 // ============================================================================
-// Pre-load sounds to prevent "sapawan" (overlapping) and improve performance
 const SOUNDS = {
     winNormal: new Audio('mp3/kaching-sound-fx.mp3'),
     winHigh: new Audio('mp3/lets-go-gambling-win.mp3'),
@@ -157,19 +160,16 @@ const SOUNDS = {
     play2: new Audio('mp3/pistol-sound-effect_zejYI9w.mp3')
 };
 
-// Lower default volume to prevent deafening noise during multi-wins
 Object.values(SOUNDS).forEach(audio => audio.volume = 0.4);
 
 function playSound(audio) {
     if (!audio || state.isSfxMuted) return;
 
     const now = Date.now();
-    // Throttle: Prevent the same sound from stuttering if played within 150ms
     if (audio.lastPlayed && (now - audio.lastPlayed) < 150) {
         return;
     }
 
-    // Ensure standard sounds also get lowered volume if not in SOUNDS object
     if (audio.volume === 1) {
         audio.volume = 0.4;
     }
@@ -201,7 +201,8 @@ let state = {
         biggestMultiplier: 0,
         longestStreak: 0
     }),
-    isGameOver: false
+    isGameOver: false,
+    borderEffect: { mode: 'idle', timer: 0 }
 };
 
 function saveState() {
@@ -258,23 +259,29 @@ const minBetSound = document.getElementById('minBetSound');
 const lossSound = document.getElementById('lossSound');
 
 // ============================================================================
-// TUTORIAL
+// TUTORIAL & HIGHLIGHTING
 // ============================================================================
 function startTutorial() {
     state.tutorialStep = 0;
     state.isTutorialActive = true;
+    
+    // Safety check - set functions manually upon open
+    const nextBtn = document.getElementById('nextStep');
+    const skipBtn = document.getElementById('skipTutorial');
+    if (nextBtn) nextBtn.onclick = nextTutorialStep;
+    if (skipBtn) skipBtn.onclick = endTutorial;
+    
     document.getElementById('tutorialOverlay').classList.remove('hidden');
     document.getElementById('tutorialBox').classList.remove('hidden');
     updateTutorialStep();
 }
 
-// ============================================================================
-// DYNAMIC TUTORIAL HIGHLIGHTING & SCROLLING (FIXED OFF-SCREEN BUG)
-// ============================================================================
 function updateTutorialStep() {
+    // Safety Check!
+    if (!state.isTutorialActive) return;
+
     const step = TUTORIAL_STEPS[state.tutorialStep];
     
-    // 1. Linisin ang mga lumang highlights at ibalik sa normal ang mga panels
     document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
     document.querySelectorAll('.elevated-pane').forEach(el => {
         el.classList.remove('elevated-pane');
@@ -313,51 +320,42 @@ function updateTutorialStep() {
             parentPane.style.zIndex = '9999'; 
         }
         
-        // I-scroll pababa
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // 4. SMART POSITIONING PARA HINDI LUMAGPAS
         let trackingFrames = 0;
         const positionBox = () => {
+            if (!state.isTutorialActive) return; // cancel loop if ended
+
             const rect = targetEl.getBoundingClientRect();
             const boxWidth = box.offsetWidth;
             const boxHeight = box.offsetHeight;
-            const padding = 15; // Espasyo mula sa gilid ng screen
+            const padding = 15; 
             
-            // I-reset muna ang default styling para makuha ang tamang sukat
             box.style.transform = 'none';
             box.style.bottom = 'auto';
             box.style.right = 'auto'; 
 
-            // FOR MOBILE / SMALL SCREENS: Ilagay na lang sa ibaba at i-center
             if (window.innerWidth <= 768) {
                 box.style.top = 'auto';
                 box.style.bottom = `${padding}px`;
                 box.style.left = '50%';
                 box.style.transform = 'translateX(-50%)';
             } 
-            // FOR DESKTOP / LARGE SCREENS: Dynamic follow
             else {
                 let topPos = rect.top + (rect.height / 2) - (boxHeight / 2);
-                let leftPos = rect.left - boxWidth - padding; // Subukan muna sa kaliwa
+                let leftPos = rect.left - boxWidth - padding;
 
-                // Kung walang space sa kaliwa, ilipat sa kanan
                 if (leftPos < padding) {
                     leftPos = rect.right + padding;
-                    
-                    // Kung wala pa ring space sa kanan, ilagay sa BABA ng element
                     if (leftPos + boxWidth > window.innerWidth - padding) {
                         leftPos = (window.innerWidth / 2) - (boxWidth / 2);
                         topPos = rect.bottom + padding;
-                        
-                        // Kung walang space sa baba, ilagay sa TAAS ng element
                         if (topPos + boxHeight > window.innerHeight - padding) {
                             topPos = rect.top - boxHeight - padding;
                         }
                     }
                 }
 
-                // FINAL BOUNDARY CHECK: Siguraduhing hinding-hindi lalagpas sa window
                 if (topPos < padding) topPos = padding;
                 if (topPos + boxHeight > window.innerHeight - padding) topPos = window.innerHeight - boxHeight - padding;
                 if (leftPos < padding) leftPos = padding;
@@ -381,6 +379,8 @@ function updateTutorialStep() {
 }
 
 function nextTutorialStep() {
+    if (!state.isTutorialActive) return; // Prevent stray events
+
     if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
         state.tutorialStep++;
         updateTutorialStep();
@@ -397,7 +397,6 @@ function endTutorial() {
     if (overlay) overlay.classList.add('hidden');
     if (box) {
         box.classList.add('hidden');
-        // IMPORTANT: Reset the tutorial box to the exact center for future modal uses
         box.style.top = '50%';
         box.style.left = '50%';
         box.style.right = 'auto';
@@ -416,7 +415,6 @@ class Pet {
         this.name = name;
         this.config = PET_CONFIGS[name] || { walk: 10, celebrate: 10 };
         this.image = new Image();
-        // Adjust for casing in LABOBO filenames
         const fileName = name === 'alwyn' ? 'Alwyn' :
             name === 'beto' ? 'Beto' :
                 name === 'gab' ? 'Gab' :
@@ -425,19 +423,19 @@ class Pet {
                             name === 'Colmo' ? 'Colmo' :
                                 name === 'Asher' ? 'Asher' : name;
         this.image.src = `Sprites/LABOBO/${fileName}.png`;
-        this.size = CONFIG.PET_SIZE * 1.5; // Make them bigger
+        this.size = CONFIG.PET_SIZE * 1.5; 
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = petsCanvas.height - this.size - 5;
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
-        this.state = 'happy'; // happy, sad, jackpot
+        this.state = 'happy'; 
         this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
     }
 
     update() {
-        const maxFrames = 5; // LABOBO sprites are usually 5 columns wide
+        const maxFrames = 5; 
         const now = Date.now();
         const fps = this.state === 'jackpot' ? 100 : 150;
 
@@ -463,7 +461,6 @@ class Pet {
     }
 
     draw(ctx) {
-        // Row 0: Happy walk, Row 1: Sad walk, Row 2: Jackpot jump
         const row = this.state === 'jackpot' ? 2 : (this.state === 'sad' ? 1 : 0);
         const s = this.size;
 
@@ -473,7 +470,6 @@ class Pet {
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
-                // Fix cropping: Divide width by 5 for columns
                 const sw = this.image.naturalWidth / 5;
                 const sh = this.image.naturalHeight / 3;
                 const aspect = sw / sh;
@@ -513,8 +509,103 @@ class Pet {
 }
 
 // ============================================================================
-// GAME FUNCTIONS
+// GAME FUNCTIONS & RGB LIGHTS
 // ============================================================================
+function triggerRGBEffect(mode) {
+    state.borderEffect.mode = mode;
+    state.borderEffect.timer = 60; // 1 second animation duration (60 fps)
+}
+
+function drawLightbulbs(ctx, w, h) {
+    const effect = state.borderEffect;
+    
+    // Dynamic spacing base sa total width & height
+    const spacingX = w / CONFIG.BORDER_LIGHT_COUNT;
+    const spacingY = h / CONFIG.BORDER_LIGHT_COUNT;
+    const bulbSize = 5;
+    const margin = 14; 
+    
+    const time = Date.now();
+
+    const bulbs = [];
+    
+    // Top (Left to Right)
+    for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
+        bulbs.push({ x: i * spacingX, y: margin });
+    }
+    // Right (Top to Bottom)
+    for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
+        bulbs.push({ x: w - margin, y: i * spacingY });
+    }
+    // Bottom (Right to Left)
+    for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
+        bulbs.push({ x: i * spacingX, y: h - margin });
+    }
+    // Left (Bottom to Top)
+    for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
+        bulbs.push({ x: margin, y: i * spacingY });
+    }
+
+    let globalColor = null;
+    let globalGlow = 0;
+
+    if (effect.timer > 0) {
+        effect.timer--;
+        if (effect.mode === 'win') {
+            globalColor = (Math.floor(effect.timer / 5) % 2 === 0) ? '#39ff14' : '#f9d71c';
+            globalGlow = 25;
+        } else if (effect.mode === 'jackpot') {
+            globalColor = `hsl(${(time * 2) % 360}, 100%, 50%)`;
+            globalGlow = 35;
+        } else if (effect.mode === 'lose') {
+            globalColor = (Math.floor(effect.timer / 5) % 2 === 0) ? '#ff1744' : '#4a0404';
+            globalGlow = 15;
+        }
+    } else {
+        state.borderEffect.mode = 'idle';
+    }
+
+    const totalBulbs = bulbs.length;
+    const speed = 25; 
+    const headIndex = Math.floor(time / speed) % totalBulbs;
+
+    bulbs.forEach((bulb, index) => {
+        let color = globalColor;
+        let glow = globalGlow;
+
+        ctx.save();
+
+        if (!color) {
+            if (state.autoPlay) {
+                let dist = (headIndex - index + totalBulbs) % totalBulbs;
+                let tailLength = 15; 
+                
+                if (dist < tailLength) {
+                    let hue = 180 + (dist * 2);
+                    let lightness = 60 - (dist * 3);
+                    color = `hsl(${hue}, 100%, ${lightness}%)`;
+                    glow = 20 - dist;
+                } else {
+                    color = 'rgba(0, 229, 255, 0.05)';
+                    glow = 0;
+                }
+            } else {
+                color = `hsl(${(time / 15 + index * 2) % 360}, 100%, 60%)`;
+                glow = 10 + Math.sin(time / 200) * 5;
+            }
+        }
+
+        ctx.shadowBlur = glow;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+        
+        ctx.beginPath();
+        ctx.arc(bulb.x, bulb.y, bulbSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
 function dropBall() {
     const randomPlaySound = Math.random() > 0.5 ? SOUNDS.play1 : SOUNDS.play2;
     playSound(randomPlaySound);
@@ -529,7 +620,7 @@ function dropBall() {
     else color = '#4caf50';
 
     balls.push({
-        x: ballX, y: 20,
+        x: ballX, y: 30, // Dropped lower to avoid clipping top lights
         vx: (Math.random() - 0.5) * 2, vy: 0,
         radius: Math.max(2, spacing * 0.15),
         color: color,
@@ -635,17 +726,20 @@ function handleWin(multiplier, slotIdx, slot) {
             state.stats.longestStreak = state.winStreak;
         }
 
-        // Win sounds based on multiplier
         if (actualMulti >= 10) {
             playSound(new Audio('mp3/paldo-nanaman.mp3'));
+            triggerRGBEffect('jackpot');
         } else if (actualMulti >= 3) {
             playSound(new Audio('mp3/lets-go-gambling-win.mp3'));
+            triggerRGBEffect('win');
         } else {
             playSound(new Audio('mp3/kaching-sound-fx.mp3'));
+            triggerRGBEffect('win');
         }
     } else {
         state.winStreak = 0;
         playSound(lossSound);
+        triggerRGBEffect('lose');
     }
 
     const winAmount = state.bet * actualMulti;
@@ -687,7 +781,7 @@ function showGameOver() {
     state.isGameOver = true;
     if (state.autoPlay) {
         const autoBtn = document.getElementById('autoPlayBtn');
-        if (autoBtn) autoBtn.click(); // Turn off autoplay by simulating click
+        if (autoBtn) autoBtn.click(); 
     }
     const overlay = document.getElementById('gameOverOverlay');
     const box = document.getElementById('gameOverBox');
@@ -713,7 +807,6 @@ function showGameOver() {
 }
 
 function hideGameOver() {
-    // state.isGameOver intentionally NOT set to false here to prevent physics loop re-triggering
     const overlay = document.getElementById('gameOverOverlay');
     const box = document.getElementById('gameOverBox');
     if (overlay) overlay.classList.add('hidden');
@@ -784,11 +877,13 @@ function addHistoryEntry(bet, multi) {
 function generateBoard() {
     pegs = []; slots = []; slotHeat = [];
     const rows = state.lines;
-    const startY = 40;
+    const startY = 55; 
     const slotHeight = 30;
+    
+    const padding = 60; 
     const availableHeight = plinkoCanvas.height - startY - slotHeight - 40;
     const maxSpacingH = availableHeight / (rows + 0.8);
-    const maxSpacingW = (plinkoCanvas.width - 40) / (rows + 2);
+    const maxSpacingW = (plinkoCanvas.width - padding) / (rows + 2);
     const spacing = Math.min(maxSpacingW, maxSpacingH);
 
     for (let r = 1; r <= rows; r++) {
@@ -861,6 +956,8 @@ function draw() {
     }
     plinkoCtx.fillStyle = cachedBgGradient;
     plinkoCtx.fillRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
+
+    drawLightbulbs(plinkoCtx, plinkoCanvas.width, plinkoCanvas.height);
 
     plinkoCtx.fillStyle = '#ffffff';
     pegs.forEach(peg => { plinkoCtx.beginPath(); plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2); plinkoCtx.fill(); });
@@ -982,7 +1079,6 @@ function draw() {
 // INIT
 // ============================================================================
 function initHUD() {
-    // Collapsible sections
     ['petsToggleHeader', 'statsToggleHeader'].forEach(id => {
         const header = document.getElementById(id);
         if (!header) return;
@@ -993,19 +1089,20 @@ function initHUD() {
         });
     });
 
-    // Tutorial
     const tutorialBtn = document.getElementById('tutorialBtn');
     if (tutorialBtn) tutorialBtn.addEventListener('click', startTutorial);
+    
+    // In-assign sa .onclick para maiwasan ang double triggering
     const nextStepBtn = document.getElementById('nextStep');
-    if (nextStepBtn) nextStepBtn.addEventListener('click', nextTutorialStep);
+    if (nextStepBtn) nextStepBtn.onclick = nextTutorialStep;
+    
     const skipTutorialBtn = document.getElementById('skipTutorial');
-    if (skipTutorialBtn) skipTutorialBtn.addEventListener('click', endTutorial);
+    if (skipTutorialBtn) skipTutorialBtn.onclick = endTutorial;
 
     if (!Storage.get('tutorialDone', false)) {
         setTimeout(startTutorial, 500);
     }
 
-    // Pet toggles
     const petTogglesEl = document.getElementById('petToggles');
     if (petTogglesEl) {
         PET_NAMES.forEach(name => {
@@ -1024,7 +1121,6 @@ function initHUD() {
         });
     }
 
-    // Bet controls
     if (betInput) {
         betInput.addEventListener('change', (e) => {
             state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
@@ -1061,7 +1157,6 @@ function initHUD() {
         });
     }
 
-    // Bet presets
     const presetsEl = document.getElementById('betPresets');
     if (presetsEl) {
         CONFIG.PRESETS.forEach(amount => {
@@ -1079,7 +1174,6 @@ function initHUD() {
         });
     }
 
-    // Game settings
     const riskEl = document.getElementById('riskLevel');
     if (riskEl) {
         riskEl.addEventListener('change', (e) => {
@@ -1127,7 +1221,6 @@ function initHUD() {
         });
     }
 
-    // Sound controls
     if (bgMusic) {
         bgMusic.volume = 0.5;
         bgMusic.muted = state.isMusicMuted;
@@ -1158,7 +1251,6 @@ function initHUD() {
     };
     document.addEventListener('click', startMusic);
 
-    // Play
     const handlePlay = async () => {
         if (state.balance >= state.bet) {
             state.balance -= state.bet;
@@ -1166,13 +1258,12 @@ function initHUD() {
             updateDisplay();
             dropBall();
         } else {
-            await showAlert('OUT OF FUNDS!', 'Oops! You are out of balance. Reset at the top to play again! 💸');
+            await showAlert('Oops! You are out of balance. Reset at the top to play again! 💸');
         }
     };
 
     if (playBtn) playBtn.addEventListener('click', handlePlay);
 
-    // Game Over Actions
     const tryAgainBtn = document.getElementById('tryAgainBtn');
     const cancelGameOverBtn = document.getElementById('cancelGameOverBtn');
     const tryAgainHoverSound = document.getElementById('tryAgainHoverSound');
@@ -1194,7 +1285,6 @@ function initHUD() {
         });
     }
 
-    // Auto-play
     const autoPlayBtn = document.getElementById('autoPlayBtn');
     const autoPlaySpeed = document.getElementById('autoPlaySpeed');
 
@@ -1224,7 +1314,7 @@ function initHUD() {
             if (state.balance >= state.bet) handlePlay();
             else {
                 stopAutoPlay();
-                await showAlert('OUT OF FUNDS!', 'Auto Play stopped because you ran out of funds. Reset now! 💸');
+                await showAlert('Auto Play stopped because you ran out of funds. Reset now! 💸');
             }
         }, speed);
     }
@@ -1241,7 +1331,6 @@ function initHUD() {
         }
     }
 
-    // Receipt
     const receiptBtn = document.getElementById('receiptBtn');
     if (receiptBtn) {
         receiptBtn.addEventListener('click', () => {
@@ -1252,7 +1341,6 @@ function initHUD() {
         });
     }
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
@@ -1282,7 +1370,6 @@ function initHUD() {
         }
     });
 
-    // Show keyboard hint
     const hint = document.getElementById('keyboardHint');
     if (hint && !Storage.get('hintShown', false)) {
         setTimeout(() => {
