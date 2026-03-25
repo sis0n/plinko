@@ -590,6 +590,7 @@ function updatePhysics() {
         });
 
         if (ball.y > plinkoCanvas.height + 50 || ball.x < -50 || ball.x > plinkoCanvas.width + 50) {
+            playSound(SOUNDS.lossHigh);
             balls.splice(i, 1);
         }
     }
