@@ -1,5 +1,5 @@
 /**
- * RollyRoyal Plinko - Premium Edition with RGB Lights
+ * RollyRoyal Plinko - Premium 2.5D Edition
  *
  * Features:
  * ✓ Auto-play with speed control
@@ -14,6 +14,8 @@
  * ✓ Performance optimized
  * ✓ Reactive RGB Border Lights (Idle, Auto-Play Circulate, Win, Lose, Jackpot)
  * ✓ Fixed Modal/Tutorial Event Bug
+ * ✓ 2.5D Isometric Pet Stage with Reflections
+ * ✓ FIXED: Uninterruptible & Smoother Jumping Celebration
  */
 
 // ============================================================================
@@ -97,44 +99,45 @@ function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
 
         if (dots) dots.style.display = 'none';
 
-        // Override using .onclick instead of addEventListener to prevent double triggers
-        nextBtn.onclick = () => {
-            closeCustomModal();
-            if (activeModalResolve) activeModalResolve(true);
-        };
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                closeCustomModal();
+                if (activeModalResolve) activeModalResolve(true);
+            };
+        }
 
-        if (isConfirm) {
+        if (isConfirm && skipBtn) {
             skipBtn.textContent = cancelText;
             skipBtn.style.display = 'inline-block';
             skipBtn.onclick = () => {
                 closeCustomModal();
                 if (activeModalResolve) activeModalResolve(false);
             };
-        } else {
+        } else if (skipBtn) {
             skipBtn.style.display = 'none';
         }
 
-        overlay.classList.remove('hidden');
-        box.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        if (box) box.classList.remove('hidden');
     });
 }
 
 function closeCustomModal() {
-    document.getElementById('tutorialOverlay').classList.add('hidden');
-    document.getElementById('tutorialBox').classList.add('hidden');
-    
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+
     const nextBtn = document.getElementById('nextStep');
     const skipBtn = document.getElementById('skipTutorial');
-    
-    // Restore original tutorial handlers safely
+
     if (nextBtn) nextBtn.onclick = nextTutorialStep;
-    if (skipBtn) skipBtn.onclick = endTutorial;
-    
     if (skipBtn) {
+        skipBtn.onclick = endTutorial;
         skipBtn.textContent = 'Skip';
         skipBtn.style.display = 'inline-block';
     }
-    
+
     const dots = document.getElementById('stepDots');
     if (dots) dots.style.display = 'flex';
 }
@@ -164,16 +167,9 @@ Object.values(SOUNDS).forEach(audio => audio.volume = 0.4);
 
 function playSound(audio) {
     if (!audio || state.isSfxMuted) return;
-
     const now = Date.now();
-    if (audio.lastPlayed && (now - audio.lastPlayed) < 150) {
-        return;
-    }
-
-    if (audio.volume === 1) {
-        audio.volume = 0.4;
-    }
-
+    if (audio.lastPlayed && (now - audio.lastPlayed) < 150) return;
+    if (audio.volume === 1) audio.volume = 0.4;
     audio.lastPlayed = now;
     audio.currentTime = 0;
     audio.play().catch(() => { });
@@ -194,12 +190,8 @@ let state = {
     autoPlayInterval: null,
     winStreak: 0,
     stats: Storage.get('stats', {
-        gamesPlayed: 0,
-        totalWagered: 0,
-        totalWon: 0,
-        biggestWin: 0,
-        biggestMultiplier: 0,
-        longestStreak: 0
+        gamesPlayed: 0, totalWagered: 0, totalWon: 0,
+        biggestWin: 0, biggestMultiplier: 0, longestStreak: 0
     }),
     isGameOver: false,
     borderEffect: { mode: 'idle', timer: 0 }
@@ -264,24 +256,24 @@ const lossSound = document.getElementById('lossSound');
 function startTutorial() {
     state.tutorialStep = 0;
     state.isTutorialActive = true;
-    
-    // Safety check - set functions manually upon open
+
     const nextBtn = document.getElementById('nextStep');
     const skipBtn = document.getElementById('skipTutorial');
     if (nextBtn) nextBtn.onclick = nextTutorialStep;
     if (skipBtn) skipBtn.onclick = endTutorial;
-    
-    document.getElementById('tutorialOverlay').classList.remove('hidden');
-    document.getElementById('tutorialBox').classList.remove('hidden');
+
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
     updateTutorialStep();
 }
 
 function updateTutorialStep() {
-    // Safety Check!
     if (!state.isTutorialActive) return;
 
     const step = TUTORIAL_STEPS[state.tutorialStep];
-    
+
     document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
     document.querySelectorAll('.elevated-pane').forEach(el => {
         el.classList.remove('elevated-pane');
@@ -299,7 +291,7 @@ function updateTutorialStep() {
 
     const nextBtn = document.getElementById('nextStep');
     if (nextBtn) nextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
-    
+
     const dotsEl = document.getElementById('stepDots');
     if (dotsEl) {
         dotsEl.innerHTML = TUTORIAL_STEPS.map((_, i) =>
@@ -317,30 +309,30 @@ function updateTutorialStep() {
         if (parentPane) {
             parentPane.classList.add('elevated-pane');
             parentPane.style.position = 'relative';
-            parentPane.style.zIndex = '9999'; 
+            parentPane.style.zIndex = '9999';
         }
-        
+
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         let trackingFrames = 0;
         const positionBox = () => {
-            if (!state.isTutorialActive) return; // cancel loop if ended
+            if (!state.isTutorialActive) return;
 
             const rect = targetEl.getBoundingClientRect();
             const boxWidth = box.offsetWidth;
             const boxHeight = box.offsetHeight;
-            const padding = 15; 
-            
+            const padding = 15;
+
             box.style.transform = 'none';
             box.style.bottom = 'auto';
-            box.style.right = 'auto'; 
+            box.style.right = 'auto';
 
             if (window.innerWidth <= 768) {
                 box.style.top = 'auto';
                 box.style.bottom = `${padding}px`;
                 box.style.left = '50%';
                 box.style.transform = 'translateX(-50%)';
-            } 
+            }
             else {
                 let topPos = rect.top + (rect.height / 2) - (boxHeight / 2);
                 let leftPos = rect.left - boxWidth - padding;
@@ -368,7 +360,7 @@ function updateTutorialStep() {
             trackingFrames++;
             if (trackingFrames < 35) requestAnimationFrame(positionBox);
         };
-        
+
         requestAnimationFrame(positionBox);
     } else if (box) {
         box.style.top = '50%';
@@ -379,8 +371,7 @@ function updateTutorialStep() {
 }
 
 function nextTutorialStep() {
-    if (!state.isTutorialActive) return; // Prevent stray events
-
+    if (!state.isTutorialActive) return;
     if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
         state.tutorialStep++;
         updateTutorialStep();
@@ -393,7 +384,7 @@ function endTutorial() {
     state.isTutorialActive = false;
     const overlay = document.getElementById('tutorialOverlay');
     const box = document.getElementById('tutorialBox');
-    
+
     if (overlay) overlay.classList.add('hidden');
     if (box) {
         box.classList.add('hidden');
@@ -402,13 +393,13 @@ function endTutorial() {
         box.style.right = 'auto';
         box.style.transform = 'translate(-50%, -50%)';
     }
-    
+
     document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
     Storage.set('tutorialDone', true);
 }
 
 // ============================================================================
-// PET CLASS
+// 2.5D PET CLASS WITH REFLECTIONS & FIXED JUMP ANIMATION
 // ============================================================================
 class Pet {
     constructor(name) {
@@ -423,29 +414,35 @@ class Pet {
                             name === 'Colmo' ? 'Colmo' :
                                 name === 'Asher' ? 'Asher' : name;
         this.image.src = `Sprites/LABOBO/${fileName}.png`;
-        this.size = CONFIG.PET_SIZE * 1.5; 
+        this.size = CONFIG.PET_SIZE * 1.5;
         this.x = Math.random() * (petsCanvas.width - this.size);
-        this.y = petsCanvas.height - this.size - 5;
+        this.y = petsCanvas.height - this.size - 30; // Adjusted for 2.5D stage
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
-        this.state = 'happy'; 
+        this.state = 'happy';
         this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
     }
 
     update() {
-        const maxFrames = 5; 
+        const maxFrames = 5;
         const now = Date.now();
-        const fps = this.state === 'jackpot' ? 100 : 150;
+        // Pinabagal ang frames kapag jumping (mula 100 naging 200ms)
+        const fps = this.state === 'jackpot' ? 200 : 150;
 
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
             this.lastFrameUpdate = now;
         }
 
+        let jumpOffset = 0;
+
         if (this.state === 'jackpot') {
             this.timer--;
+            // Smooth Sine Wave Bounce pataas
+            jumpOffset = -Math.abs(Math.sin(this.timer * 0.15)) * 25;
+
             if (this.timer <= 0) {
                 this.state = 'happy';
                 this.vx = (Math.random() - 0.5) * 1.5;
@@ -457,7 +454,8 @@ class Pet {
             this.direction = this.vx > 0 ? 1 : -1;
         }
 
-        this.y = petsCanvas.height - this.size - 5;
+        // Align pet to the 2.5D floor baseline + kasama ang jump
+        this.y = petsCanvas.height - this.size - 30 + jumpOffset;
     }
 
     draw(ctx) {
@@ -476,23 +474,36 @@ class Pet {
                 const drawH = s;
                 const drawW = s * aspect;
 
-                ctx.drawImage(this.image,
-                    this.frame * sw, row * sh,
-                    sw, sh,
-                    -drawW / 2, -drawH / 2, drawW, drawH);
+                // 2.5D Trick: Draw Reflection underneath!
+                ctx.save();
+                ctx.translate(0, drawH / 2);
+                ctx.scale(1, -0.3);
+                ctx.globalAlpha = 0.2;
+                ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, 0, drawW, drawH);
+                ctx.restore();
+
+                // Draw actual character
+                ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, -drawH / 2, drawW, drawH);
             } else {
                 ctx.fillStyle = '#d4af37';
                 ctx.beginPath(); ctx.arc(0, 0, s / 3, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = '#000'; ctx.font = `bold ${s / 4}px sans-serif`;
                 ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s / 10);
             }
-        } catch (e) {
-            ctx.fillStyle = '#d4af37'; ctx.fillRect(-s / 4, -s / 4, s / 2, s / 2);
-        }
+        } catch (e) { }
         ctx.restore();
     }
 
     celebrate(actualMulti) {
+        // EXCEPTION: Lock the state kung tumatalon pa (nasa jackpot state at hindi pa ubos ang timer)
+        if (this.state === 'jackpot' && this.timer > 0) {
+            // Kung jackpot ulit ang nahulog habang tumatalon, i-reset natin ang timer para tuloy lang ang talon
+            if (actualMulti >= 10) {
+                this.timer = Math.max(this.timer, 180);
+            }
+            return; // Balewalain ang ibang states (sad/happy) habang tumatalon
+        }
+
         if (actualMulti >= 10) {
             this.state = 'jackpot';
             this.timer = 180;
@@ -518,30 +529,29 @@ function triggerRGBEffect(mode) {
 
 function drawLightbulbs(ctx, w, h) {
     const effect = state.borderEffect;
-    
-    // Dynamic spacing base sa total width & height
+
     const spacingX = w / CONFIG.BORDER_LIGHT_COUNT;
     const spacingY = h / CONFIG.BORDER_LIGHT_COUNT;
     const bulbSize = 5;
-    const margin = 14; 
-    
+    const margin = 14;
+
     const time = Date.now();
 
     const bulbs = [];
-    
-    // Top (Left to Right)
+
+    // Top (Left to Right, skip corners)
     for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
         bulbs.push({ x: i * spacingX, y: margin });
     }
-    // Right (Top to Bottom)
+    // Right (Top to Bottom, skip corners)
     for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
         bulbs.push({ x: w - margin, y: i * spacingY });
     }
-    // Bottom (Right to Left)
+    // Bottom (Right to Left, skip corners)
     for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
         bulbs.push({ x: i * spacingX, y: h - margin });
     }
-    // Left (Bottom to Top)
+    // Left (Bottom to Top, skip corners)
     for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
         bulbs.push({ x: margin, y: i * spacingY });
     }
@@ -566,7 +576,7 @@ function drawLightbulbs(ctx, w, h) {
     }
 
     const totalBulbs = bulbs.length;
-    const speed = 25; 
+    const speed = 25;
     const headIndex = Math.floor(time / speed) % totalBulbs;
 
     bulbs.forEach((bulb, index) => {
@@ -577,9 +587,10 @@ function drawLightbulbs(ctx, w, h) {
 
         if (!color) {
             if (state.autoPlay) {
+                // AutoPlay Marquee
                 let dist = (headIndex - index + totalBulbs) % totalBulbs;
-                let tailLength = 15; 
-                
+                let tailLength = 15;
+
                 if (dist < tailLength) {
                     let hue = 180 + (dist * 2);
                     let lightness = 60 - (dist * 3);
@@ -590,6 +601,7 @@ function drawLightbulbs(ctx, w, h) {
                     glow = 0;
                 }
             } else {
+                // Idle Pattern
                 color = `hsl(${(time / 15 + index * 2) % 360}, 100%, 60%)`;
                 glow = 10 + Math.sin(time / 200) * 5;
             }
@@ -598,7 +610,7 @@ function drawLightbulbs(ctx, w, h) {
         ctx.shadowBlur = glow;
         ctx.shadowColor = color;
         ctx.fillStyle = color;
-        
+
         ctx.beginPath();
         ctx.arc(bulb.x, bulb.y, bulbSize, 0, Math.PI * 2);
         ctx.fill();
@@ -781,7 +793,7 @@ function showGameOver() {
     state.isGameOver = true;
     if (state.autoPlay) {
         const autoBtn = document.getElementById('autoPlayBtn');
-        if (autoBtn) autoBtn.click(); 
+        if (autoBtn) autoBtn.click();
     }
     const overlay = document.getElementById('gameOverOverlay');
     const box = document.getElementById('gameOverBox');
@@ -877,10 +889,10 @@ function addHistoryEntry(bet, multi) {
 function generateBoard() {
     pegs = []; slots = []; slotHeat = [];
     const rows = state.lines;
-    const startY = 55; 
+    const startY = 55;
     const slotHeight = 30;
-    
-    const padding = 60; 
+
+    const padding = 60;
     const availableHeight = plinkoCanvas.height - startY - slotHeight - 40;
     const maxSpacingH = availableHeight / (rows + 0.8);
     const maxSpacingW = (plinkoCanvas.width - padding) / (rows + 2);
@@ -939,95 +951,178 @@ function updateControlsState() {
 }
 
 // ============================================================================
-// DRAW
+// 2.5D CASINO STAGE DRAWING
+// ============================================================================
+function drawPetStage() {
+    petsCtx.clearRect(0, 0, petsCanvas.width, petsCanvas.height);
+    const w = petsCanvas.width;
+    const h = petsCanvas.height;
+
+    // 1. Background Wall
+    petsCtx.fillStyle = '#05060a';
+    petsCtx.fillRect(0, 0, w, h);
+
+    // 2. Spotlights
+    const spotGrad = petsCtx.createRadialGradient(w / 2, 0, 20, w / 2, h / 2, h);
+    spotGrad.addColorStop(0, 'rgba(212, 175, 55, 0.15)');
+    spotGrad.addColorStop(1, 'transparent');
+    petsCtx.fillStyle = spotGrad;
+    petsCtx.fillRect(0, 0, w, h);
+
+    // 3. Isometric / Perspective Floor
+    const floorTopY = h - 60;
+    const floorBottomY = h - 15;
+
+    petsCtx.beginPath();
+    petsCtx.moveTo(w * 0.05, floorTopY); // Top Left 
+    petsCtx.lineTo(w * 0.95, floorTopY); // Top Right
+    petsCtx.lineTo(w, floorBottomY);     // Bottom Right
+    petsCtx.lineTo(0, floorBottomY);     // Bottom Left
+    petsCtx.closePath();
+
+    // Floor Gradient 
+    const floorGrad = petsCtx.createLinearGradient(0, floorTopY, 0, floorBottomY);
+    floorGrad.addColorStop(0, '#0b0d17');
+    floorGrad.addColorStop(1, '#1a1d2d');
+    petsCtx.fillStyle = floorGrad;
+    petsCtx.fill();
+
+    // 4. Perspective Grid Lines
+    petsCtx.strokeStyle = 'rgba(212, 175, 55, 0.1)';
+    petsCtx.lineWidth = 1;
+    // Vertical receding lines
+    for (let i = 1; i < 10; i++) {
+        petsCtx.beginPath();
+        let topX = w * 0.05 + (w * 0.9 * (i / 10));
+        let bottomX = w * (i / 10);
+        petsCtx.moveTo(topX, floorTopY);
+        petsCtx.lineTo(bottomX, floorBottomY);
+        petsCtx.stroke();
+    }
+    // Horizontal perspective lines
+    petsCtx.beginPath(); petsCtx.moveTo(w * 0.035, floorTopY + 15); petsCtx.lineTo(w * 0.965, floorTopY + 15); petsCtx.stroke();
+    petsCtx.beginPath(); petsCtx.moveTo(w * 0.015, floorTopY + 32); petsCtx.lineTo(w * 0.985, floorTopY + 32); petsCtx.stroke();
+
+    // 5. Stage Front Lip
+    petsCtx.fillStyle = '#d4af37';
+    petsCtx.fillRect(0, floorBottomY, w, 3);
+    petsCtx.fillStyle = '#05060a';
+    petsCtx.fillRect(0, floorBottomY + 3, w, h - floorBottomY);
+
+    // Glowing Gold Outline
+    petsCtx.shadowColor = '#f9d71c';
+    petsCtx.shadowBlur = 10;
+    petsCtx.strokeStyle = '#d4af37';
+    petsCtx.lineWidth = 2;
+    petsCtx.beginPath();
+    petsCtx.moveTo(0, floorBottomY);
+    petsCtx.lineTo(w, floorBottomY);
+    petsCtx.stroke();
+    petsCtx.shadowBlur = 0;
+
+    // Draw the pets on top of this stage
+    pets.forEach(pet => {
+        if (state.activePets.has(pet.name)) {
+            pet.update();
+            pet.draw(petsCtx);
+        }
+    });
+}
+
+// ============================================================================
+// DRAW - FLAT 2D PLINKO BOARD
 // ============================================================================
 function draw() {
     updatePhysics();
     updateControlsState();
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
+    // 1. FLAT BACKGROUND
     if (!cachedBgGradient) {
-        cachedBgGradient = plinkoCtx.createRadialGradient(
-            plinkoCanvas.width / 2, plinkoCanvas.height / 2, 50,
-            plinkoCanvas.width / 2, plinkoCanvas.height / 2, plinkoCanvas.width
-        );
-        cachedBgGradient.addColorStop(0, '#1a1d2d');
-        cachedBgGradient.addColorStop(1, '#0b0d17');
+        // Gumamit ng solid o simpleng linear gradient imbes na radial para sa flat look
+        cachedBgGradient = '#05060a';
     }
     plinkoCtx.fillStyle = cachedBgGradient;
     plinkoCtx.fillRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
     drawLightbulbs(plinkoCtx, plinkoCanvas.width, plinkoCanvas.height);
 
-    plinkoCtx.fillStyle = '#ffffff';
-    pegs.forEach(peg => { plinkoCtx.beginPath(); plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2); plinkoCtx.fill(); });
+    const getSlotColor = (m) => {
+        if (m >= 100) return '#d500f9';
+        if (m >= 25) return '#ff1744';
+        if (m >= 5) return '#ff6d00';
+        if (m >= 2) return '#f9d71c';
+        if (m >= 1) return '#ffea00';
+        return '#00e676';
+    };
 
+    // 2. FLAT PEGS (Simpleng Circles)
+    pegs.forEach(peg => {
+        // Tinanggal ang shadow, body layers, at specular highlight.
+        // Isang simpleng flat circle na may border.
+        plinkoCtx.fillStyle = '#e0e0e0';
+        plinkoCtx.strokeStyle = '#555555'; // Darker gray outline
+        plinkoCtx.lineWidth = 1;
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
+        plinkoCtx.fill();
+        plinkoCtx.stroke();
+    });
+
+    // 3 & 5. SLOTS (Merged and Flattened)
+    // Pinagsama ang Pass 1 at Pass 2 para sa isang solid, flat na disenyo na may borderlines.
     slots.forEach((slot, idx) => {
         const m = slot.multiplier;
-        let baseColor, topColor, bottomColor;
-
-        if (m >= 100) { baseColor = '#d500f9'; topColor = '#f50057'; bottomColor = '#4a148c'; }
-        else if (m >= 25) { baseColor = '#ff1744'; topColor = '#ff5252'; bottomColor = '#b71c1c'; }
-        else if (m >= 5) { baseColor = '#ff6d00'; topColor = '#ff9100'; bottomColor = '#bf360c'; }
-        else if (m >= 2) { baseColor = '#ffab00'; topColor = '#ffd740'; bottomColor = '#ff6f00'; }
-        else if (m >= 1) { baseColor = '#ffea00'; topColor = '#ffff8d'; bottomColor = '#f57f17'; }
-        else { baseColor = '#00e676'; topColor = '#69f0ae'; bottomColor = '#1b5e20'; }
-
-        slot.color = baseColor;
-
+        const color = getSlotColor(m);
         const pulse = slotPulses.find(p => p.slotIndex === idx);
-        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.15 : 1; const heat = slotHeat[idx] || 0;
+        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.1 : 1;
 
         plinkoCtx.save();
         plinkoCtx.translate(slot.x + slot.width / 2, slot.y + slot.height / 2);
         plinkoCtx.scale(pulseScale, pulseScale);
         plinkoCtx.translate(-(slot.x + slot.width / 2), -(slot.y + slot.height / 2));
 
-        if (heat > 0.5) {
-            plinkoCtx.shadowColor = baseColor;
-            plinkoCtx.shadowBlur = heat * 10;
-        }
-
-        const slotGradient = plinkoCtx.createLinearGradient(slot.x, slot.y, slot.x, slot.y + slot.height);
-        slotGradient.addColorStop(0, topColor);
-        slotGradient.addColorStop(0.4, baseColor);
-        slotGradient.addColorStop(1, bottomColor);
-
-        plinkoCtx.fillStyle = slotGradient;
+        // A. TINTED FLAT BACKGROUND
+        plinkoCtx.fillStyle = color;
+        plinkoCtx.globalAlpha = 0.2; // Slightly higher alpha para mas kita sa flat BG
         plinkoCtx.beginPath();
-        plinkoCtx.roundRect(slot.x + 2, slot.y, slot.width - 4, slot.height, 6);
+        // Gumamit ng rect imbes na roundRect para sa mas matalas na flat look (optional)
+        plinkoCtx.rect(slot.x, slot.y, slot.width, slot.height);
         plinkoCtx.fill();
+        plinkoCtx.globalAlpha = 1.0;
 
-        plinkoCtx.shadowBlur = 0;
+        // B. FLAT BORDERLINES (Ito ang nagpapabago sa look)
+        plinkoCtx.strokeStyle = color;
+        plinkoCtx.lineWidth = 2; // Solid na linya sa paligid
 
-        plinkoCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        plinkoCtx.lineWidth = 2;
-        plinkoCtx.beginPath();
-        plinkoCtx.moveTo(slot.x + 6, slot.y + 2);
-        plinkoCtx.lineTo(slot.x + slot.width - 6, slot.y + 2);
-        plinkoCtx.stroke();
-
-        plinkoCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        plinkoCtx.lineWidth = 1;
-        plinkoCtx.strokeRect(slot.x + 2, slot.y, slot.width - 4, slot.height);
-
-        if (heat > 1) {
-            plinkoCtx.fillStyle = 'rgba(255, 100, 0, 0.3)';
-            plinkoCtx.fillRect(slot.x + 2, slot.y, slot.width - 4, 3);
+        // Heat effect ay flat stroke glow na lang, hindi blur
+        const heat = slotHeat[idx] || 0;
+        if (heat > 0.5) {
+            plinkoCtx.lineWidth = 2 + heat; // Kumakapal ang linya kapag mainit
         }
 
-        plinkoCtx.fillStyle = '#000';
-        plinkoCtx.font = `bold ${Math.max(8, slot.width * 0.28)}px sans-serif`;
+        plinkoCtx.strokeRect(slot.x, slot.y, slot.width, slot.height);
+
+        // C. TEXT (Pina-simple ang shadow)
+        let displayMulti = m >= 1000 ? (m / 1000) + 'k' : m;
+        let textStr = `${displayMulti}x`;
+        let fontSize = slot.width * 0.45;
+        if (textStr.length >= 4) {
+            fontSize = slot.width * 0.35;
+        }
+
+        plinkoCtx.fillStyle = color;
+        plinkoCtx.font = `900 ${fontSize}px sans-serif`;
         plinkoCtx.textAlign = 'center';
-        plinkoCtx.shadowColor = 'rgba(255,255,255,0.2)';
-        plinkoCtx.shadowBlur = 2;
-        plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + slot.height * 0.7);
-        plinkoCtx.shadowBlur = 0;
+        // Tinanggal ang shadow blur sa text para malinis
+        plinkoCtx.fillText(textStr, slot.x + slot.width / 2, slot.y + slot.height * 0.65, slot.width - 4);
 
         plinkoCtx.restore();
     });
 
+    // 4. FLAT BALLS
     balls.forEach(ball => {
+        // Trail (Nananatili dahil flat naman ito)
         if (ball.trail && ball.trail.length > 1) {
             for (let i = 0; i < ball.trail.length - 1; i++) {
                 const alpha = (i + 1) / ball.trail.length;
@@ -1040,15 +1135,20 @@ function draw() {
             plinkoCtx.globalAlpha = 1;
         }
 
-        plinkoCtx.shadowColor = ball.color;
-        plinkoCtx.shadowBlur = 8;
+        // Tinanggal ang Ball Shadow sa ilalim.
+        // Tinanggal ang Gradient Highlight sa ibabaw.
+
+        // Isang solid color circle na lang na may manipis na border para di magmukhang flat icon lang
         plinkoCtx.fillStyle = ball.color;
+        plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+        plinkoCtx.lineWidth = 1;
         plinkoCtx.beginPath();
         plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
         plinkoCtx.fill();
-        plinkoCtx.shadowBlur = 0;
+        plinkoCtx.stroke();
     });
 
+    // 6. FX (Confetti & Text - Nananatiling flat)
     confetti.forEach(p => {
         plinkoCtx.save();
         plinkoCtx.translate(p.x, p.y);
@@ -1063,15 +1163,18 @@ function draw() {
         const effect = winEffects[i];
         plinkoCtx.save(); plinkoCtx.translate(effect.x, effect.y); plinkoCtx.rotate(effect.rotation);
         plinkoCtx.globalAlpha = effect.opacity; plinkoCtx.fillStyle = '#f9d71c';
-        plinkoCtx.shadowBlur = 15; plinkoCtx.shadowColor = '#f9d71c';
-        plinkoCtx.font = 'bold 40px serif'; plinkoCtx.textAlign = 'center';
+
+        // Flattened win text shadow
+        plinkoCtx.shadowBlur = 5; // Reduced drastically
+        plinkoCtx.shadowColor = '#f9d71c';
+
+        plinkoCtx.font = '900 40px sans-serif'; plinkoCtx.textAlign = 'center';
         plinkoCtx.fillText(effect.text, 0, 0); plinkoCtx.restore();
         effect.opacity -= 0.02; effect.rotation += 0.05; effect.y -= 1;
         if (effect.opacity <= 0) winEffects.splice(i, 1);
     }
 
-    petsCtx.fillStyle = '#0b0d17'; petsCtx.fillRect(0, 0, petsCanvas.width, petsCanvas.height);
-    pets.forEach(pet => { if (state.activePets.has(pet.name)) { pet.update(); pet.draw(petsCtx); } });
+    drawPetStage();
     requestAnimationFrame(draw);
 }
 
@@ -1091,11 +1194,10 @@ function initHUD() {
 
     const tutorialBtn = document.getElementById('tutorialBtn');
     if (tutorialBtn) tutorialBtn.addEventListener('click', startTutorial);
-    
-    // In-assign sa .onclick para maiwasan ang double triggering
+
     const nextStepBtn = document.getElementById('nextStep');
     if (nextStepBtn) nextStepBtn.onclick = nextTutorialStep;
-    
+
     const skipTutorialBtn = document.getElementById('skipTutorial');
     if (skipTutorialBtn) skipTutorialBtn.onclick = endTutorial;
 
