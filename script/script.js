@@ -47,17 +47,17 @@ const PET_CONFIGS = {
 
 const TUTORIAL_STEPS = [
     { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal luxury casino experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
-    { title: "Recent History", content: "Track your performance on the left. View your **Bet**, **Multiplier**, and **Profit** (Green for wins, Red for losses). Keep an eye on your winning streak!", target: ".history-pane" },
-    { title: "Your Balance", content: "This displays your current funds. If you ever run out, simply click **Reset Balance** to start fresh with ₱1,000.00.", target: ".balance-section" },
-    { title: "Controls & Settings", content: "Top controls: Click **❓** to replay this guide, **🎵** for music, and **🔊** for sound effects. Enjoy the vibe while you play!", target: ".hud-controls" },
-    { title: "Bet Amount", content: "Input your stake or use quick presets! **MIN/MAX** buttons for extremes, or click preset amounts. Watch the **Max Win** display!", target: ".bet-input-wrapper" },
+    { title: "Recent History", content: "Track your performance on the left. View your Bet, Multiplier, and Profit (Green for wins, Red for losses). Keep an eye on your winning streak!", target: ".history-pane" },
+    { title: "Your Balance", content: "This displays your current funds. If you ever run out, simply click Reset Balance to start fresh with 1,000.00.", target: ".balance-section" },
+    { title: "Controls & Settings", content: "Top controls: Click the Help icon to replay this guide, the Music icon to toggle background tracks, and the Sound icon for sound effects.", target: ".hud-controls" },
+    { title: "Bet Amount", content: "Input your stake or use quick presets! Use the MIN/MAX buttons for extremes. Watch the Max Win display to see your potential payout!", target: ".bet-input-wrapper" },
     { title: "Risk Level", content: "Choose your strategy:<br>• <b>Low</b>: Frequent but smaller wins.<br>• <b>Normal</b>: Balanced risk and reward.<br>• <b>High</b>: High volatility with massive multipliers!", target: "#riskLevel" },
     { title: "Lines (Pegs)", content: "Adjust the number of peg rows (8 to 16 lines). More lines mean more multiplier slots and higher jackpot potential!", target: ".hud-group:has(#linesCount)" },
     { title: "Lucky Pets", content: "Meet your team! Select which pets you want to see. They will celebrate with you whenever you hit those big multipliers!", target: ".collapsible" },
-    { title: "Auto-Play Mode", content: "Want to sit back and watch? Use <b>AUTO PLAY</b> to automatically drop balls at your chosen speed. Build win streaks for bonus multipliers!", target: "#autoPlayBtn" },
-    { title: "Digital Receipt", content: "Want to flex your win? Click <b>s</b>! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
+    { title: "Auto-Play Mode", content: "Want to sit back and watch? Use Auto Play to automatically drop balls at your chosen speed. Build win streaks for bonus multipliers!", target: "#autoPlayBtn" },
+    { title: "Digital Receipt", content: "Want to flex your win? Click Save Receipt! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
     { title: "Pets Playground", content: "At the bottom, your selected pets walk and play. Watch them celebrate your victories in real-time!", target: ".pets-section" },
-    { title: "Ready, Set, PLAY!", content: "Everything is set! Click <b>PLAY</b> to drop a ball, or spam it for rapid-fire action! Build win streaks 🔥 for bonus multipliers. Good luck!", target: "#playBtn" }
+    { title: "Ready, Set, PLAY!", content: "Everything is set! Click PLAY to drop a ball, or spam it for rapid-fire action! Build win streaks for bonus multipliers. Good luck!", target: "#playBtn" }
 ];
 
 // ============================================================================
@@ -77,7 +77,7 @@ const Storage = {
 function playSound(audio) {
     if (!audio || state.isSfxMuted) return;
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => { });
 }
 
 // ============================================================================
@@ -88,7 +88,7 @@ let activeModalResolve = null;
 function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
     return new Promise((resolve) => {
         activeModalResolve = resolve;
-        
+
         const overlay = document.getElementById('tutorialOverlay');
         const box = document.getElementById('tutorialBox');
         const contentEl = document.getElementById('tutorialContent');
@@ -97,7 +97,7 @@ function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
         const dots = document.getElementById('stepDots');
 
         contentEl.innerHTML = `<h3 style="color: var(--gold); margin-bottom: 10px;">${title}</h3><p style="text-align: center; margin: 20px 0;">${content}</p>`;
-        
+
         if (dots) dots.style.display = 'none';
 
         nextBtn.textContent = confirmText;
@@ -162,21 +162,21 @@ Object.values(SOUNDS).forEach(audio => audio.volume = 0.4);
 
 function playSound(audio) {
     if (!audio || state.isSfxMuted) return;
-    
+
     const now = Date.now();
     // Throttle: Prevent the same sound from stuttering if played within 150ms
     if (audio.lastPlayed && (now - audio.lastPlayed) < 150) {
         return;
     }
-    
+
     // Ensure standard sounds also get lowered volume if not in SOUNDS object
     if (audio.volume === 1) {
         audio.volume = 0.4;
     }
-    
+
     audio.lastPlayed = now;
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => { });
 }
 
 let state = {
@@ -268,10 +268,19 @@ function startTutorial() {
     updateTutorialStep();
 }
 
+// ============================================================================
+// DYNAMIC TUTORIAL HIGHLIGHTING & SCROLLING (FIXED OFF-SCREEN BUG)
+// ============================================================================
 function updateTutorialStep() {
     const step = TUTORIAL_STEPS[state.tutorialStep];
-    const highlightElements = document.querySelectorAll('.highlight-element');
-    highlightElements.forEach(el => el.classList.remove('highlight-element'));
+    
+    // 1. Linisin ang mga lumang highlights at ibalik sa normal ang mga panels
+    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    document.querySelectorAll('.elevated-pane').forEach(el => {
+        el.classList.remove('elevated-pane');
+        el.style.zIndex = '';
+        el.style.position = '';
+    });
 
     const contentEl = document.getElementById('tutorialContent');
     if (contentEl) {
@@ -281,9 +290,6 @@ function updateTutorialStep() {
         `;
     }
 
-    const targetEl = document.querySelector(step.target);
-    if (targetEl) targetEl.classList.add('highlight-element');
-
     const nextBtn = document.getElementById('nextStep');
     if (nextBtn) nextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
     
@@ -292,6 +298,85 @@ function updateTutorialStep() {
         dotsEl.innerHTML = TUTORIAL_STEPS.map((_, i) =>
             `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
         ).join('');
+    }
+
+    const targetEl = document.querySelector(step.target);
+    const box = document.getElementById('tutorialBox');
+
+    if (targetEl && box) {
+        targetEl.classList.add('highlight-element');
+
+        const parentPane = targetEl.closest('.hud-pane, .history-pane, .game-pane, .pets-section');
+        if (parentPane) {
+            parentPane.classList.add('elevated-pane');
+            parentPane.style.position = 'relative';
+            parentPane.style.zIndex = '9999'; 
+        }
+        
+        // I-scroll pababa
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 4. SMART POSITIONING PARA HINDI LUMAGPAS
+        let trackingFrames = 0;
+        const positionBox = () => {
+            const rect = targetEl.getBoundingClientRect();
+            const boxWidth = box.offsetWidth;
+            const boxHeight = box.offsetHeight;
+            const padding = 15; // Espasyo mula sa gilid ng screen
+            
+            // I-reset muna ang default styling para makuha ang tamang sukat
+            box.style.transform = 'none';
+            box.style.bottom = 'auto';
+            box.style.right = 'auto'; 
+
+            // FOR MOBILE / SMALL SCREENS: Ilagay na lang sa ibaba at i-center
+            if (window.innerWidth <= 768) {
+                box.style.top = 'auto';
+                box.style.bottom = `${padding}px`;
+                box.style.left = '50%';
+                box.style.transform = 'translateX(-50%)';
+            } 
+            // FOR DESKTOP / LARGE SCREENS: Dynamic follow
+            else {
+                let topPos = rect.top + (rect.height / 2) - (boxHeight / 2);
+                let leftPos = rect.left - boxWidth - padding; // Subukan muna sa kaliwa
+
+                // Kung walang space sa kaliwa, ilipat sa kanan
+                if (leftPos < padding) {
+                    leftPos = rect.right + padding;
+                    
+                    // Kung wala pa ring space sa kanan, ilagay sa BABA ng element
+                    if (leftPos + boxWidth > window.innerWidth - padding) {
+                        leftPos = (window.innerWidth / 2) - (boxWidth / 2);
+                        topPos = rect.bottom + padding;
+                        
+                        // Kung walang space sa baba, ilagay sa TAAS ng element
+                        if (topPos + boxHeight > window.innerHeight - padding) {
+                            topPos = rect.top - boxHeight - padding;
+                        }
+                    }
+                }
+
+                // FINAL BOUNDARY CHECK: Siguraduhing hinding-hindi lalagpas sa window
+                if (topPos < padding) topPos = padding;
+                if (topPos + boxHeight > window.innerHeight - padding) topPos = window.innerHeight - boxHeight - padding;
+                if (leftPos < padding) leftPos = padding;
+                if (leftPos + boxWidth > window.innerWidth - padding) leftPos = window.innerWidth - boxWidth - padding;
+
+                box.style.top = `${topPos}px`;
+                box.style.left = `${leftPos}px`;
+            }
+
+            trackingFrames++;
+            if (trackingFrames < 35) requestAnimationFrame(positionBox);
+        };
+        
+        requestAnimationFrame(positionBox);
+    } else if (box) {
+        box.style.top = '50%';
+        box.style.left = '50%';
+        box.style.bottom = 'auto';
+        box.style.transform = 'translate(-50%, -50%)';
     }
 }
 
@@ -306,8 +391,19 @@ function nextTutorialStep() {
 
 function endTutorial() {
     state.isTutorialActive = false;
-    document.getElementById('tutorialOverlay').classList.add('hidden');
-    document.getElementById('tutorialBox').classList.add('hidden');
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+    
+    if (overlay) overlay.classList.add('hidden');
+    if (box) {
+        box.classList.add('hidden');
+        // IMPORTANT: Reset the tutorial box to the exact center for future modal uses
+        box.style.top = '50%';
+        box.style.left = '50%';
+        box.style.right = 'auto';
+        box.style.transform = 'translate(-50%, -50%)';
+    }
+    
     document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
     Storage.set('tutorialDone', true);
 }
@@ -321,13 +417,13 @@ class Pet {
         this.config = PET_CONFIGS[name] || { walk: 10, celebrate: 10 };
         this.image = new Image();
         // Adjust for casing in LABOBO filenames
-        const fileName = name === 'alwyn' ? 'Alwyn' : 
-                         name === 'beto' ? 'Beto' : 
-                         name === 'gab' ? 'Gab' : 
-                         name === 'kyle' ? 'kyle' : 
-                         name === 'Renz' ? 'Renz' : 
-                         name === 'Colmo' ? 'Colmo' :
-                         name === 'Asher' ? 'Asher' : name;
+        const fileName = name === 'alwyn' ? 'Alwyn' :
+            name === 'beto' ? 'Beto' :
+                name === 'gab' ? 'Gab' :
+                    name === 'kyle' ? 'kyle' :
+                        name === 'Renz' ? 'Renz' :
+                            name === 'Colmo' ? 'Colmo' :
+                                name === 'Asher' ? 'Asher' : name;
         this.image.src = `Sprites/LABOBO/${fileName}.png`;
         this.size = CONFIG.PET_SIZE * 1.5; // Make them bigger
         this.x = Math.random() * (petsCanvas.width - this.size);
@@ -372,7 +468,7 @@ class Pet {
         const s = this.size;
 
         ctx.save();
-        ctx.translate(this.x + s/2, this.y + s/2);
+        ctx.translate(this.x + s / 2, this.y + s / 2);
         if (this.direction === -1) ctx.scale(-1, 1);
 
         try {
@@ -387,15 +483,15 @@ class Pet {
                 ctx.drawImage(this.image,
                     this.frame * sw, row * sh,
                     sw, sh,
-                    -drawW/2, -drawH/2, drawW, drawH);
+                    -drawW / 2, -drawH / 2, drawW, drawH);
             } else {
                 ctx.fillStyle = '#d4af37';
-                ctx.beginPath(); ctx.arc(0, 0, s/3, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#000'; ctx.font = `bold ${s/4}px sans-serif`;
-                ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s/10);
+                ctx.beginPath(); ctx.arc(0, 0, s / 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.font = `bold ${s / 4}px sans-serif`;
+                ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s / 10);
             }
         } catch (e) {
-            ctx.fillStyle = '#d4af37'; ctx.fillRect(-s/4, -s/4, s/2, s/2);
+            ctx.fillStyle = '#d4af37'; ctx.fillRect(-s / 4, -s / 4, s / 2, s / 2);
         }
         ctx.restore();
     }
@@ -580,8 +676,8 @@ function handleWin(multiplier, slotIdx, slot) {
         winEffects.push({ text, x: plinkoCanvas.width / 2, y: plinkoCanvas.height / 2, opacity: 1, rotation: 0 });
     }
 
-    pets.forEach(p => { 
-        if (state.activePets.has(p.name)) p.celebrate(actualMulti); 
+    pets.forEach(p => {
+        if (state.activePets.has(p.name)) p.celebrate(actualMulti);
     });
 }
 
@@ -596,19 +692,19 @@ function showGameOver() {
     const box = document.getElementById('gameOverBox');
     if (overlay) overlay.classList.remove('hidden');
     if (box) box.classList.remove('hidden');
-    
+
     const catLaugh = document.getElementById('catLaughSound');
     const tuco = document.getElementById('tucoSound');
-    
+
     if (!state.isSfxMuted) {
         if (catLaugh) {
             catLaugh.currentTime = 0;
-            catLaugh.play().catch(() => {});
-            
+            catLaugh.play().catch(() => { });
+
             catLaugh.onended = () => {
                 if (!state.isSfxMuted && state.isGameOver && tuco) {
                     tuco.currentTime = 0;
-                    tuco.play().catch(() => {});
+                    tuco.play().catch(() => { });
                 }
             };
         }
@@ -621,7 +717,7 @@ function hideGameOver() {
     const box = document.getElementById('gameOverBox');
     if (overlay) overlay.classList.add('hidden');
     if (box) box.classList.add('hidden');
-    
+
     const catLaugh = document.getElementById('catLaughSound');
     const tuco = document.getElementById('tucoSound');
     if (catLaugh) catLaugh.pause();
@@ -903,7 +999,7 @@ function initHUD() {
     if (nextStepBtn) nextStepBtn.addEventListener('click', nextTutorialStep);
     const skipTutorialBtn = document.getElementById('skipTutorial');
     if (skipTutorialBtn) skipTutorialBtn.addEventListener('click', endTutorial);
-    
+
     if (!Storage.get('tutorialDone', false)) {
         setTimeout(startTutorial, 500);
     }
@@ -1056,7 +1152,7 @@ function initHUD() {
     }
 
     const startMusic = () => {
-        if (bgMusic) bgMusic.play().catch(() => {});
+        if (bgMusic) bgMusic.play().catch(() => { });
         document.removeEventListener('click', startMusic);
     };
     document.addEventListener('click', startMusic);
@@ -1125,8 +1221,8 @@ function initHUD() {
         const speed = CONFIG.AUTOPLAY_SPEEDS[state.autoPlaySpeed];
         state.autoPlayInterval = setInterval(async () => {
             if (state.balance >= state.bet) handlePlay();
-            else { 
-                stopAutoPlay(); 
+            else {
+                stopAutoPlay();
                 await showAlert('OUT OF FUNDS!', 'Auto Play stopped because you ran out of funds. Reset now! 💸');
             }
         }, speed);
@@ -1159,7 +1255,7 @@ function initHUD() {
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
-        switch(e.key.toLowerCase()) {
+        switch (e.key.toLowerCase()) {
             case ' ':
             case 'enter':
                 e.preventDefault();
