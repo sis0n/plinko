@@ -1,7 +1,7 @@
 # RollyRoyal Plinko - Implementation Plan
 
 ## 1. Objective
-Develop a 2D physics-based Plinko game using HTML5 Canvas with a "luxury casino" aesthetic. 
+Develop a 2D physics-based Plinko game using HTML5 Canvas with an "arcade-like experience" aesthetic. 
 Incorporate a gamification twist involving animated "pet" sprites that react to the gameplay.
 
 ## 2. Layout & UI Structure (HTML/CSS)
@@ -29,7 +29,7 @@ Incorporate a gamification twist involving animated "pet" sprites that react to 
 *   `scale`: Used for pulsing slot multipliers when a ball lands.
 *   `transform`: Used for advanced coordinate mapping or skewed UI/shadow effects.
 *   `toDataURL`: Used for generating the "Digital Receipt".
-*   `createLinearGradient` / `createRadialGradient`: Used for the board background to give a luxury casino feel.
+*   `createLinearGradient` / `createRadialGradient`: Used for the board background to give an arcade-like experience.
 
 ## 5. Gamification Twist: Sprite Pets
 *   **Assets**: Parse the sprite sheets in `@Sprites/pets/`.

@@ -51,7 +51,7 @@ const PET_CONFIGS = {
 };
 
 const TUTORIAL_STEPS = [
-    { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal luxury casino experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
+    { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal arcade-like experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
     { title: "Recent History", content: "Track your performance on the left. View your Bet, Multiplier, and Profit (Green for wins, Red for losses). Keep an eye on your winning streak!", target: ".history-pane" },
     { title: "Your Balance", content: "This displays your current funds. If you ever run out, simply click Reset Balance to start fresh with 1,000.00.", target: ".balance-section" },
     { title: "Controls & Settings", content: "Top controls: Click the Help icon to replay this guide, the Music icon to toggle background tracks, and the Sound icon for sound effects.", target: ".hud-controls" },
@@ -955,7 +955,7 @@ function updateControlsState() {
 }
 
 // ============================================================================
-// 2.5D CASINO STAGE DRAWING
+// 2.5D ARCADE STAGE DRAWING
 // ============================================================================
 function drawPetStage() {
     petsCtx.clearRect(0, 0, petsCanvas.width, petsCanvas.height);

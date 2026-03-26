@@ -1,11 +1,11 @@
 # RollyRoyal Plinko – 2d arcade theme game
 
 ## Project Overview
-RollyRoyal Plinko is a physics-based digital Plinko game developed using the HTML5 Canvas API. The system simulates a ball dropping through a grid of pegs, where its trajectory is dynamically calculated using real-time gravity and collision physics. It serves as a technical showcase of 2D coordinate transformations, featuring a luxury casino aesthetic built with procedural gradients and interactive animations. A key feature is the "Digital Receipt" system, which uses `toDataURL` to allow users to export their winning moments as image files.
+RollyRoyal Plinko is a physics-based digital Plinko game developed using the HTML5 Canvas API. The system simulates a ball dropping through a grid of pegs, where its trajectory is dynamically calculated using real-time gravity and collision physics. It serves as a technical showcase of 2D coordinate transformations, featuring a arcade-like experience aesthetic built with procedural gradients and interactive animations. A key feature is the "Digital Receipt" system, which uses `toDataURL` to allow users to export their winning moments as image files.
 
 ### Core Technologies
 - **HTML5:** `index.html` structure with `<canvas>` implementation.
-- **CSS3:** Styling for layout and "luxury casino" aesthetic (`style/style.css`).
+- **CSS3:** Styling for layout and "arcade-like experience" aesthetic (`style/style.css`).
 - **JavaScript:** Game logic, physics engine, and Canvas rendering (`script/script.js`).
 
 ## Technical Requirements
