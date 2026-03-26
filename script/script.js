@@ -36,7 +36,13 @@ const CONFIG = {
     STREAK_BONUS_START: 3,
     STREAK_BONUS_RATE: 0.1,
     PRESETS: [5, 10, 25, 50, 100],
-    BORDER_LIGHT_COUNT: 24 // Dami ng bumbilya sa bawat gilid
+    BORDER_LIGHT_COUNT: 24, // Dami ng bumbilya sa bawat gilid
+
+    // Gamification
+    DAILY_REWARD: 100.00,
+    XP_PER_GAME: 10,
+    XP_PER_WIN: 25,
+    XP_PER_LEVEL: 1000
 };
 
 const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
@@ -49,6 +55,45 @@ const PET_CONFIGS = {
     'kyle': { walk: 8, celebrate: 6 },
     'Renz': { walk: 8, celebrate: 5 }
 };
+
+// ============================================================================
+// GAMIFICATION DATA
+// ============================================================================
+const SHOP_ITEMS = {
+    powerups: [
+        { id: 'lucky_charm', name: '🍀 Lucky Charm', description: '+10% to all multipliers (10 plays)', cost: 250, duration: 10 },
+        { id: 'golden_ball', name: '⚜️ Golden Ball', description: '2x win amount (5 plays)', cost: 500, duration: 5 },
+        { id: 'shield', name: '🛡️ Loss Shield', description: 'Refund 50% of losses (5 plays)', cost: 300, duration: 5 },
+        { id: 'streak_saver', name: '🔥 Streak Saver', description: 'Keep streak on next loss', cost: 400, duration: 1 },
+        { id: 'jackpot_boost', name: '💎 Jackpot Boost', description: '+50% to edge multipliers (3 plays)', cost: 600, duration: 3 }
+    ],
+    pets: [
+        { id: 'leo', name: '🦁 Leo', description: 'Majestic lion with rare animations', cost: 2000, unlocked: false },
+        { id: 'dragon', name: '🐉 Dragon', description: 'Epic dragon with fire effects', cost: 5000, unlocked: false },
+        { id: 'unicorn', name: '🦄 Unicorn', description: 'Magical unicorn with rainbow trail', cost: 3500, unlocked: false }
+    ],
+    themes: [
+        { id: 'neon', name: '🌃 Neon Nights', description: 'Cyberpunk neon theme', cost: 1500, unlocked: false },
+        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false }
+    ]
+};
+
+const ACHIEVEMENTS = [
+    { id: 'first_win', name: 'First Blood', description: 'Win your first game', reward: 100, icon: '🎯', condition: () => state.stats.gamesPlayed > 0 && state.stats.totalWon > 0 },
+    { id: 'big_spender', name: 'High Roller', description: 'Bet ₱100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
+    { id: 'streak_5', name: 'On Fire!', description: 'Win 5 games in a row', reward: 300, icon: '🔥', condition: () => state.winStreak >= 5 },
+    { id: 'streak_10', name: 'Unstoppable', description: 'Win 10 games in a row', reward: 1000, icon: '⚡', condition: () => state.stats.longestStreak >= 10 },
+    { id: 'millionaire', name: 'Millionaire', description: 'Reach ₱10,000 balance', reward: 500, icon: '💎', condition: () => state.balance >= 10000 },
+    { id: 'games_100', name: 'Century Club', description: 'Play 100 games', reward: 250, icon: '💯', condition: () => state.stats.gamesPlayed >= 100 },
+    { id: 'jackpot', name: 'Jackpot Master', description: 'Hit the highest multiplier', reward: 750, icon: '🎰', condition: () => state.jackpotHit },
+    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ₱0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
+];
+
+const DAILY_CHALLENGES = [
+    { id: 'daily_wins', name: 'Win 10 games', reward: 150, target: 10, icon: '🎲' },
+    { id: 'daily_streak', name: 'Get a 3-win streak', reward: 200, target: 3, icon: '🔥' },
+    { id: 'daily_wagered', name: 'Wager ₱500 total', reward: 100, target: 500, icon: '💰' }
+];
 
 const TUTORIAL_STEPS = [
     { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal arcade-like experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
@@ -195,7 +240,20 @@ let state = {
     }),
     history: [],
     isGameOver: false,
-    borderEffect: { mode: 'idle', timer: 0 }
+    borderEffect: { mode: 'idle', timer: 0 },
+
+    // Gamification
+    level: Storage.get('level', 1),
+    xp: Storage.get('xp', 0),
+    coins: Storage.get('coins', 0), // Separate currency for shop
+    activePowerups: Storage.get('activePowerups', []),
+    unlockedItems: Storage.get('unlockedItems', []),
+    achievements: Storage.get('achievements', []),
+    lastLogin: Storage.get('lastLogin', null),
+    dailyProgress: Storage.get('dailyProgress', { wins: 0, streak: 0, wagered: 0 }),
+    biggestBet: Storage.get('biggestBet', 0),
+    jackpotHit: Storage.get('jackpotHit', false),
+    comebackAchieved: Storage.get('comebackAchieved', false)
 };
 
 function saveState() {
@@ -203,6 +261,17 @@ function saveState() {
     Storage.set('stats', state.stats);
     Storage.set('musicMuted', state.isMusicMuted);
     Storage.set('sfxMuted', state.isSfxMuted);
+    Storage.set('level', state.level);
+    Storage.set('xp', state.xp);
+    Storage.set('coins', state.coins);
+    Storage.set('activePowerups', state.activePowerups);
+    Storage.set('unlockedItems', state.unlockedItems);
+    Storage.set('achievements', state.achievements);
+    Storage.set('lastLogin', state.lastLogin);
+    Storage.set('dailyProgress', state.dailyProgress);
+    Storage.set('biggestBet', state.biggestBet);
+    Storage.set('jackpotHit', state.jackpotHit);
+    Storage.set('comebackAchieved', state.comebackAchieved);
 }
 
 // ============================================================================
@@ -656,6 +725,132 @@ function createConfetti(x, y) {
     }
 }
 
+// ============================================================================
+// GAMIFICATION LOGIC
+// ============================================================================
+function checkDailyLogin() {
+    const today = new Date().toDateString();
+    if (state.lastLogin !== today) {
+        state.lastLogin = today;
+        state.balance += CONFIG.DAILY_REWARD;
+        state.coins += 50;
+        state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
+        showAlert(`Daily Reward! 🎁<br>+₱${CONFIG.DAILY_REWARD.toFixed(2)} Balance<br>+50 Coins`);
+        saveState();
+    }
+}
+
+function addXP(amount) {
+    state.xp += amount;
+    const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+
+    if (state.xp >= xpNeeded) {
+        state.xp -= xpNeeded;
+        state.level++;
+        const coinReward = state.level * 100;
+        state.coins += coinReward;
+        showAlert(`🎉 Level Up!<br>Level ${state.level}<br>+${coinReward} Coins`);
+        playSound(new Audio('mp3/paldo-nanaman.mp3'));
+    }
+    updateLevelDisplay();
+    saveState();
+}
+
+function checkAchievements() {
+    ACHIEVEMENTS.forEach(ach => {
+        if (!state.achievements.includes(ach.id) && ach.condition()) {
+            state.achievements.push(ach.id);
+            state.balance += ach.reward;
+            state.coins += ach.reward / 2;
+            showAlert(`🏆 Achievement Unlocked!<br>${ach.icon} ${ach.name}<br>+₱${ach.reward} & +${ach.reward/2} Coins`);
+            playSound(new Audio('mp3/paldo-nanaman.mp3'));
+            saveState();
+        }
+    });
+}
+
+function activatePowerup(powerupId) {
+    const powerup = SHOP_ITEMS.powerups.find(p => p.id === powerupId);
+    if (!powerup) return;
+
+    if (state.coins < powerup.cost) {
+        showAlert('Not enough coins! 💰');
+        return;
+    }
+
+    state.coins -= powerup.cost;
+    state.activePowerups.push({
+        id: powerup.id,
+        name: powerup.name,
+        remaining: powerup.duration
+    });
+
+    showAlert(`${powerup.name} activated!<br>${powerup.duration} plays remaining`);
+    updatePowerupDisplay();
+    saveState();
+}
+
+function consumePowerup(powerupId) {
+    const powerup = state.activePowerups.find(p => p.id === powerupId);
+    if (!powerup) return;
+
+    powerup.remaining--;
+    if (powerup.remaining <= 0) {
+        state.activePowerups = state.activePowerups.filter(p => p.id !== powerupId);
+        showAlert(`${powerup.name} expired! 💨`);
+    }
+
+    updatePowerupDisplay();
+    saveState();
+}
+
+function applyPowerups(multiplier, winAmount) {
+    let boostedMulti = multiplier;
+    let boostedWin = winAmount;
+
+    state.activePowerups.forEach(powerup => {
+        switch(powerup.id) {
+            case 'lucky_charm':
+                boostedMulti *= 1.1;
+                break;
+            case 'golden_ball':
+                boostedWin *= 2;
+                break;
+            case 'jackpot_boost':
+                if (multiplier >= 10) boostedMulti *= 1.5;
+                break;
+        }
+    });
+
+    return { multiplier: boostedMulti, winAmount: boostedWin };
+}
+
+function handleLoss(betAmount) {
+    let refund = 0;
+
+    // Shield powerup
+    const shield = state.activePowerups.find(p => p.id === 'shield');
+    if (shield) {
+        refund = betAmount * 0.5;
+        state.balance += refund;
+        consumePowerup('shield');
+    }
+
+    return refund;
+}
+
+function handleStreakLoss() {
+    // Streak saver powerup
+    const streakSaver = state.activePowerups.find(p => p.id === 'streak_saver');
+    if (streakSaver && state.winStreak > 0) {
+        // Don't reset streak
+        consumePowerup('streak_saver');
+        showAlert('🛡️ Streak Saved!');
+        return true; // Streak was saved
+    }
+    return false; // Streak not saved
+}
+
 function updatePhysics() {
     for (let i = balls.length - 1; i >= 0; i--) {
         const ball = balls[i];
@@ -729,14 +924,29 @@ function updatePhysics() {
 function handleWin(multiplier, slotIdx, slot) {
     let actualMulti = multiplier;
 
+    // Check for comeback achievement
+    if (state.balance <= 0 && multiplier >= 1) {
+        state.comebackAchieved = true;
+    }
+
     if (multiplier >= 1) {
         state.winStreak++;
+        state.dailyProgress.wins++;
+        if (state.winStreak > state.dailyProgress.streak) {
+            state.dailyProgress.streak = state.winStreak;
+        }
+
         if (state.winStreak > CONFIG.STREAK_BONUS_START) {
             const bonus = Math.floor((state.winStreak - CONFIG.STREAK_BONUS_START) * CONFIG.STREAK_BONUS_RATE * 10) / 10;
             actualMulti = multiplier + bonus;
         }
         if (state.winStreak > state.stats.longestStreak) {
             state.stats.longestStreak = state.winStreak;
+        }
+
+        // Check for jackpot achievement
+        if (multiplier >= 100) {
+            state.jackpotHit = true;
         }
 
         if (actualMulti >= 10) {
@@ -749,14 +959,44 @@ function handleWin(multiplier, slotIdx, slot) {
             playSound(new Audio('mp3/kaching-sound-fx.mp3'));
             triggerRGBEffect('win');
         }
+
+        // Add XP for winning
+        addXP(CONFIG.XP_PER_WIN);
+
+        // Consume powerups
+        state.activePowerups.forEach(p => consumePowerup(p.id));
     } else {
-        state.winStreak = 0;
-        playSound(lossSound);
-        triggerRGBEffect('lose');
+        // Handle loss
+        const refund = handleLoss(state.bet);
+
+        // Check streak saver
+        if (!handleStreakLoss()) {
+            state.winStreak = 0; // Reset streak if not saved
+        }
+
+        if (refund === 0) {
+            playSound(lossSound);
+            triggerRGBEffect('lose');
+        }
+
+        // Add small XP even for losses
+        addXP(CONFIG.XP_PER_GAME);
     }
 
-    const winAmount = state.bet * actualMulti;
+    let winAmount = state.bet * actualMulti;
+
+    // Apply powerups
+    const boosted = applyPowerups(actualMulti, winAmount);
+    actualMulti = boosted.multiplier;
+    winAmount = boosted.winAmount;
+
     state.balance += winAmount;
+
+    // Award coins based on win
+    if (multiplier >= 1) {
+        const coinReward = Math.floor(winAmount / 10);
+        state.coins += coinReward;
+    }
 
     if (!slotHeat[slotIdx]) slotHeat[slotIdx] = 0;
     slotHeat[slotIdx] = Math.min(slotHeat[slotIdx] + 1, 5);
@@ -765,9 +1005,13 @@ function handleWin(multiplier, slotIdx, slot) {
 
     state.stats.gamesPlayed++;
     state.stats.totalWagered += state.bet;
+    state.dailyProgress.wagered += state.bet;
     state.stats.totalWon += winAmount;
     if (winAmount > state.stats.biggestWin) state.stats.biggestWin = winAmount;
     if (actualMulti > state.stats.biggestMultiplier) state.stats.biggestMultiplier = actualMulti;
+
+    // Check achievements
+    checkAchievements();
 
     saveState();
     updateDisplay();
@@ -849,6 +1093,48 @@ function updateDisplay() {
         const maxMulti = Math.max(...(MULTIPLIERS[state.lines]?.[state.risk] || [1]));
         const maxWin = state.bet * maxMulti;
         maxWinEl.textContent = `Max: ₱${maxWin.toFixed(2)} (${maxMulti}x)`;
+    }
+
+    updateLevelDisplay();
+    updateCoinDisplay();
+    updatePowerupDisplay();
+}
+
+function updateLevelDisplay() {
+    const levelEl = document.getElementById('levelDisplay');
+    if (levelEl) {
+        const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+        const progress = Math.floor((state.xp / xpNeeded) * 100);
+        levelEl.innerHTML = `
+            <div class="level-badge">
+                <span class="level-number">Lv.${state.level}</span>
+            </div>
+            <div class="xp-bar-container">
+                <div class="xp-bar" style="width: ${progress}%"></div>
+                <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
+            </div>
+        `;
+    }
+}
+
+function updateCoinDisplay() {
+    const coinEl = document.getElementById('coinDisplay');
+    if (coinEl) {
+        coinEl.textContent = `🪙 ${state.coins} Coins`;
+    }
+}
+
+function updatePowerupDisplay() {
+    const powerupEl = document.getElementById('activePowerupsDisplay');
+    if (powerupEl && state.activePowerups.length > 0) {
+        powerupEl.innerHTML = state.activePowerups.map(p => `
+            <div class="active-powerup">
+                ${p.name} (${p.remaining})
+            </div>
+        `).join('');
+        powerupEl.style.display = 'block';
+    } else if (powerupEl) {
+        powerupEl.style.display = 'none';
     }
 }
 
@@ -1185,6 +1471,90 @@ function draw() {
 // ============================================================================
 // INIT
 // ============================================================================
+// SHOP & ACHIEVEMENTS UI
+// ============================================================================
+function openShop() {
+    const overlay = document.getElementById('shopOverlay');
+    const box = document.getElementById('shopBox');
+    const shopCoins = document.getElementById('shopCoins');
+
+    if (shopCoins) shopCoins.textContent = `🪙 ${state.coins} Coins`;
+
+    // Render powerups
+    const powerupsEl = document.getElementById('powerupsShop');
+    if (powerupsEl) {
+        powerupsEl.innerHTML = SHOP_ITEMS.powerups.map(item => `
+            <div class="shop-item">
+                <div class="shop-item-header">
+                    <span class="shop-item-name">${item.name}</span>
+                    <span class="shop-item-cost">🪙 ${item.cost}</span>
+                </div>
+                <p class="shop-item-desc">${item.description}</p>
+                <button class="buy-btn" data-item="${item.id}" ${state.coins < item.cost ? 'disabled' : ''}>
+                    ${state.coins < item.cost ? 'Not Enough Coins' : 'Buy'}
+                </button>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        powerupsEl.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const itemId = btn.dataset.item;
+                activatePowerup(itemId);
+                openShop(); // Refresh
+            });
+        });
+    }
+
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+}
+
+function closeShop() {
+    const overlay = document.getElementById('shopOverlay');
+    const box = document.getElementById('shopBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+}
+
+function openAchievements() {
+    const overlay = document.getElementById('achievementsOverlay');
+    const box = document.getElementById('achievementsBox');
+    const content = document.getElementById('achievementsContent');
+
+    if (content) {
+        content.innerHTML = ACHIEVEMENTS.map(ach => {
+            const unlocked = state.achievements.includes(ach.id);
+            const progress = ach.condition() ? '100%' : '0%';
+
+            return `
+                <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <div class="achievement-icon">${ach.icon}</div>
+                    <div class="achievement-details">
+                        <div class="achievement-name">${ach.name}</div>
+                        <div class="achievement-desc">${ach.description}</div>
+                        <div class="achievement-reward">Reward: ₱${ach.reward} + 🪙${ach.reward/2}</div>
+                    </div>
+                    <div class="achievement-status">
+                        ${unlocked ? '✅ Unlocked' : '🔒 Locked'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+}
+
+function closeAchievements() {
+    const overlay = document.getElementById('achievementsOverlay');
+    const box = document.getElementById('achievementsBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+}
+
+// ============================================================================
 function initHUD() {
     ['petsToggleHeader', 'statsToggleHeader'].forEach(id => {
         const header = document.getElementById(id);
@@ -1198,6 +1568,18 @@ function initHUD() {
 
     const tutorialBtn = document.getElementById('tutorialBtn');
     if (tutorialBtn) tutorialBtn.addEventListener('click', startTutorial);
+
+    const shopBtn = document.getElementById('shopBtn');
+    if (shopBtn) shopBtn.addEventListener('click', openShop);
+
+    const closeShopBtn = document.getElementById('closeShop');
+    if (closeShopBtn) closeShopBtn.addEventListener('click', closeShop);
+
+    const achievementsBtn = document.getElementById('achievementsBtn');
+    if (achievementsBtn) achievementsBtn.addEventListener('click', openAchievements);
+
+    const closeAchievementsBtn = document.getElementById('closeAchievements');
+    if (closeAchievementsBtn) closeAchievementsBtn.addEventListener('click', closeAchievements);
 
     const nextStepBtn = document.getElementById('nextStep');
     if (nextStepBtn) nextStepBtn.onclick = nextTutorialStep;
@@ -1360,6 +1742,12 @@ function initHUD() {
     const handlePlay = async () => {
         if (state.balance >= state.bet) {
             state.balance -= state.bet;
+
+            // Track biggest bet
+            if (state.bet > state.biggestBet) {
+                state.biggestBet = state.bet;
+            }
+
             saveState();
             updateDisplay();
             dropBall();
@@ -1633,8 +2021,12 @@ window.onload = () => {
     resizeCanvases();
     setTimeout(resizeCanvases, 100);
     initPets();
+    checkDailyLogin(); // Check for daily rewards
     updateDisplay();
     updateStatsDisplay();
+    updateLevelDisplay();
+    updateCoinDisplay();
+    checkAchievements(); // Check for initial achievements
 
     let resizeTimeout;
     window.addEventListener('resize', () => {

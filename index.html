@@ -30,6 +30,8 @@
                     <div class="hud-header">
                         <label>Balance</label>
                         <div class="hud-controls">
+                            <button id="shopBtn" class="icon-btn" title="Shop">🛒</button>
+                            <button id="achievementsBtn" class="icon-btn" title="Achievements">🏆</button>
                             <button id="zeroBalance" class="icon-btn" title="Set Balance to 0">0️⃣</button>
                             <button id="tutorialBtn" class="icon-btn" title="How to Play">❓</button>
                             <button id="musicToggle" class="icon-btn" title="Toggle Music">🎵</button>
@@ -37,7 +39,10 @@
                         </div>
                     </div>
                     <div id="userBalance">₱1000.00</div>
+                    <div id="coinDisplay" class="coin-display">🪙 0 Coins</div>
                     <div id="streakDisplay" class="streak-display" style="display: none;"></div>
+                    <div id="activePowerupsDisplay" class="active-powerups" style="display: none;"></div>
+                    <div id="levelDisplay" class="level-display"></div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
 
@@ -171,6 +176,49 @@
             <div class="step-dots" id="stepDots"></div>
             <button id="nextStep" class="primary-btn tutorial-next">NEXT</button>
         </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shopOverlay" class="tutorial-overlay hidden"></div>
+    <div id="shopBox" class="tutorial-box shop-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">🛒 Shop</span>
+            <button id="closeShop" class="skip-link">Close</button>
+        </div>
+        <div class="shop-content">
+            <div class="shop-balance">
+                <span id="shopCoins">🪙 0 Coins</span>
+            </div>
+
+            <div class="shop-section">
+                <h3>⚡ Power-ups</h3>
+                <div id="powerupsShop" class="shop-grid"></div>
+            </div>
+
+            <div class="shop-section">
+                <h3>🐾 Pets (Coming Soon)</h3>
+                <div id="petsShop" class="shop-grid locked">
+                    <p style="text-align: center; opacity: 0.5;">More pets coming in future updates!</p>
+                </div>
+            </div>
+
+            <div class="shop-section">
+                <h3>🎨 Themes (Coming Soon)</h3>
+                <div id="themesShop" class="shop-grid locked">
+                    <p style="text-align: center; opacity: 0.5;">Custom themes coming soon!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievements Modal -->
+    <div id="achievementsOverlay" class="tutorial-overlay hidden"></div>
+    <div id="achievementsBox" class="tutorial-box achievements-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">🏆 Achievements</span>
+            <button id="closeAchievements" class="skip-link">Close</button>
+        </div>
+        <div class="achievements-content" id="achievementsContent"></div>
     </div>
 
     <div id="keyboardHint" class="keyboard-hint">

@@ -860,3 +860,251 @@ input[type=range]::-webkit-slider-thumb {
         font-size: 1.5rem;
     }
 }
+
+/* ============================================================================
+   GAMIFICATION STYLES
+   ============================================================================ */
+
+/* Level Display */
+.level-display {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.05));
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.level-badge {
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.level-number {
+    background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.xp-bar-container {
+    position: relative;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    height: 20px;
+    overflow: hidden;
+}
+
+.xp-bar {
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    height: 100%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.xp-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Coin Display */
+.coin-display {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+/* Active Powerups */
+.active-powerups {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 8px;
+}
+
+.active-powerup {
+    background: rgba(76, 175, 80, 0.2);
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin: 3px 0;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* Shop Modal */
+.shop-box, .achievements-box {
+    max-width: 700px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.shop-content, .achievements-content {
+    padding: 20px;
+}
+
+.shop-balance {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 15px;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.shop-section {
+    margin-bottom: 30px;
+}
+
+.shop-section h3 {
+    color: var(--gold);
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.shop-item {
+    background: rgba(30, 35, 50, 0.8);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.shop-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(212, 175, 55, 0.3);
+}
+
+.shop-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.shop-item-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.shop-item-cost {
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.shop-item-desc {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.buy-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.buy-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: scale(1.05);
+}
+
+.buy-btn:disabled {
+    background: rgba(100, 100, 100, 0.5);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Achievements */
+.achievement-item {
+    background: rgba(30, 35, 50, 0.8);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 15px;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.achievement-item.unlocked {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.achievement-item.locked {
+    opacity: 0.6;
+}
+
+.achievement-icon {
+    font-size: 2.5rem;
+    text-align: center;
+}
+
+.achievement-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.achievement-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--gold);
+}
+
+.achievement-desc {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.achievement-reward {
+    color: var(--gold-bright);
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.achievement-status {
+    text-align: center;
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.achievement-item.unlocked .achievement-status {
+    background: rgba(76, 175, 80, 0.3);
+    color: #8bc34a;
+}
+
+.achievement-item.locked .achievement-status {
+    background: rgba(100, 100, 100, 0.3);
+    color: rgba(255, 255, 255, 0.5);
+}
