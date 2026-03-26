@@ -667,6 +667,9 @@ input[type=range]::-webkit-slider-thumb {
     background: rgba(244, 67, 54, 0.1);
     border-color: #f44336;
     color: #f44336;
+    font-size: 1.2rem;
+    font-weight: 900;
+    padding: 16px;
 }
 
 .tutorial-header {
