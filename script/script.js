@@ -193,6 +193,7 @@ let state = {
         gamesPlayed: 0, totalWagered: 0, totalWon: 0,
         biggestWin: 0, biggestMultiplier: 0, longestStreak: 0
     }),
+    history: [],
     isGameOver: false,
     borderEffect: { mode: 'idle', timer: 0 }
 };
@@ -870,9 +871,12 @@ function updateStatsDisplay() {
 }
 
 function addHistoryEntry(bet, multi) {
+    const profit = bet * multi;
+    state.history.unshift({ bet, multi, profit });
+    if (state.history.length > CONFIG.MAX_HISTORY) state.history.pop();
+
     const historyList = document.getElementById('historyList');
     if (!historyList) return;
-    const profit = bet * multi;
     const entry = document.createElement('div');
     entry.className = 'history-entry';
     entry.innerHTML = `
@@ -1436,9 +1440,144 @@ function initHUD() {
     const receiptBtn = document.getElementById('receiptBtn');
     if (receiptBtn) {
         receiptBtn.addEventListener('click', () => {
+            // Create an off-screen canvas for the receipt
+            const receiptCanvas = document.createElement('canvas');
+            const rCtx = receiptCanvas.getContext('2d');
+            receiptCanvas.width = 500;
+            receiptCanvas.height = 750;
+
+            // 1. Background (Paper Texture)
+            rCtx.fillStyle = '#ffffff';
+            rCtx.fillRect(0, 0, receiptCanvas.width, receiptCanvas.height);
+            
+            // Subtle paper pattern
+            rCtx.strokeStyle = '#f0f0f0';
+            rCtx.lineWidth = 1;
+            for(let i=0; i<receiptCanvas.height; i+=20) {
+                rCtx.beginPath();
+                rCtx.moveTo(0, i);
+                rCtx.lineTo(receiptCanvas.width, i);
+                rCtx.stroke();
+            }
+
+            // 2. Header
+            rCtx.fillStyle = '#000000';
+            rCtx.textAlign = 'center';
+            rCtx.font = 'bold 30px "Courier New", Courier, monospace';
+            rCtx.fillText('ROLLY ROYAL PLINKO', receiptCanvas.width / 2, 60);
+            
+            rCtx.font = '16px "Courier New", Courier, monospace';
+            rCtx.fillText('OFFICIAL DIGITAL RECEIPT', receiptCanvas.width / 2, 85);
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 105);
+            
+            const now = new Date();
+            rCtx.textAlign = 'left';
+            rCtx.font = '14px "Courier New", Courier, monospace';
+            rCtx.fillText(`DATE: ${now.toLocaleDateString()}`, 50, 135);
+            rCtx.fillText(`TIME: ${now.toLocaleTimeString()}`, 50, 155);
+            rCtx.fillText(`SESSION ID: #${Math.floor(Math.random() * 1000000)}`, 50, 175);
+            
+            rCtx.textAlign = 'center';
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 200);
+
+            // 3. Stats Section
+            rCtx.textAlign = 'left';
+            rCtx.font = 'bold 18px "Courier New", Courier, monospace';
+            rCtx.fillText('SESSION SUMMARY', 50, 230);
+            
+            rCtx.font = '16px "Courier New", Courier, monospace';
+            const { gamesPlayed, totalWagered, totalWon, biggestWin, biggestMultiplier } = state.stats;
+            const net = totalWon - totalWagered;
+
+            rCtx.fillText(`GAMES PLAYED:      ${gamesPlayed}`, 50, 260);
+            rCtx.fillText(`TOTAL WAGERED:     ₱${totalWagered.toFixed(2)}`, 50, 285);
+            rCtx.fillText(`TOTAL WON:         ₱${totalWon.toFixed(2)}`, 50, 310);
+            rCtx.fillText(`NET PROFIT:        ₱${net.toFixed(2)}`, 50, 335);
+            rCtx.fillText(`BIGGEST WIN:       ₱${biggestWin.toFixed(2)}`, 50, 360);
+            rCtx.fillText(`BEST MULTIPLIER:   ${biggestMultiplier}x`, 50, 385);
+
+            rCtx.textAlign = 'center';
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 415);
+
+            // 4. Recent History "UI Snapshot"
+            const hX = 50;
+            const hY = 440;
+            const hW = 400;
+            const hH = 220;
+
+            // Draw Dark UI Container (Mimicking the .history-pane CSS)
+            rCtx.fillStyle = '#141928'; // var(--panel-bg)
+            rCtx.beginPath();
+            rCtx.roundRect(hX, hY, hW, hH, 12);
+            rCtx.fill();
+            
+            // Add a subtle border/glow
+            rCtx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+            rCtx.lineWidth = 1;
+            rCtx.stroke();
+
+            // Header for the "Snapshot"
+            rCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            rCtx.beginPath();
+            rCtx.roundRect(hX, hY, hW, 35, [12, 12, 0, 0]);
+            rCtx.fill();
+
+            rCtx.fillStyle = '#d4af37'; // --gold
+            rCtx.font = 'bold 14px sans-serif';
+            rCtx.textAlign = 'center';
+            rCtx.fillText('RECENT HISTORY', hX + hW / 2, hY + 23);
+
+            // History Entries
+            const displayHistory = state.history.slice(0, 7); // Show last 7 entries to fit the card
+            displayHistory.forEach((entry, i) => {
+                const entryY = hY + 65 + (i * 22);
+                
+                // Draw row divider
+                rCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                rCtx.beginPath();
+                rCtx.moveTo(hX + 15, entryY + 5);
+                rCtx.lineTo(hX + hW - 15, entryY + 5);
+                rCtx.stroke();
+
+                rCtx.font = '12px "Segoe UI", Arial, sans-serif';
+                
+                // Bet (Gray)
+                rCtx.textAlign = 'left';
+                rCtx.fillStyle = '#aaa';
+                rCtx.fillText(`₱${entry.bet.toFixed(2)}`, hX + 25, entryY);
+                
+                // Multiplier (Gold)
+                rCtx.textAlign = 'center';
+                rCtx.fillStyle = '#d4af37';
+                rCtx.font = 'bold 12px sans-serif';
+                rCtx.fillText(`${entry.multi}x`, hX + hW / 2, entryY);
+                
+                // Profit (Green/Red)
+                rCtx.textAlign = 'right';
+                rCtx.fillStyle = entry.multi >= 1 ? '#4caf50' : '#f44336';
+                rCtx.fillText(`₱${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
+            });
+
+            // 5. Footer
+            rCtx.fillStyle = '#000000';
+            rCtx.textAlign = 'center';
+            rCtx.font = 'bold 20px "Courier New", Courier, monospace';
+            rCtx.fillText('THANK YOU FOR PLAYING!', receiptCanvas.width / 2, 650);
+            
+            rCtx.font = '12px "Courier New", Courier, monospace';
+            rCtx.fillText('Rolly Royal Plinko (2D Arcade) | No Real Value', receiptCanvas.width / 2, 675);
+            
+            // Barcode-like lines
+            rCtx.fillStyle = '#000000';
+            for(let i=0; i<40; i++) {
+                const bw = Math.random() * 5 + 1;
+                rCtx.fillRect(110 + (i * 7), 690, bw, 30);
+            }
+
+            // Download the generated receipt
             const link = document.createElement('a');
             link.download = `RollyRoyal-Receipt-${Date.now()}.png`;
-            link.href = plinkoCanvas.toDataURL();
+            link.href = receiptCanvas.toDataURL('image/png');
             link.click();
         });
     }
