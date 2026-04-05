@@ -1,5 +1,5 @@
 /**
- * RollyRoyal Plinko - Premium Edition with Sound Effects
+ * RollyRoyal Plinko - Premium 2.5D Edition
  *
  * Features:
  * ✓ Auto-play with speed control
@@ -12,6 +12,10 @@
  * ✓ Keyboard shortcuts
  * ✓ Sound effects (music + SFX)
  * ✓ Performance optimized
+ * ✓ Reactive RGB Border Lights (Idle, Auto-Play Circulate, Win, Lose, Jackpot)
+ * ✓ Fixed Modal/Tutorial Event Bug
+ * ✓ 2.5D Isometric Pet Stage with Reflections
+ * ✓ FIXED: Uninterruptible & Smoother Jumping Celebration
  */
 
 // ============================================================================
@@ -27,11 +31,18 @@ const CONFIG = {
     TRAIL_LENGTH: 8,
     CONFETTI_COUNT: 50,
     CONFETTI_THRESHOLD: 10,
-    PET_SIZE: 100,
+    PET_SIZE: 80,
     AUTOPLAY_SPEEDS: { slow: 1500, normal: 800, fast: 400, turbo: 150 },
     STREAK_BONUS_START: 3,
     STREAK_BONUS_RATE: 0.1,
-    PRESETS: [5, 10, 25, 50, 100]
+    PRESETS: [5, 10, 25, 50, 100],
+    BORDER_LIGHT_COUNT: 24, // Dami ng bumbilya sa bawat gilid
+
+    // Gamification
+    DAILY_REWARD: 100.00,
+    XP_PER_GAME: 10,
+    XP_PER_WIN: 25,
+    XP_PER_LEVEL: 1000
 };
 
 const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
@@ -45,19 +56,58 @@ const PET_CONFIGS = {
     'Renz': { walk: 8, celebrate: 5 }
 };
 
+// ============================================================================
+// GAMIFICATION DATA
+// ============================================================================
+const SHOP_ITEMS = {
+    powerups: [
+        { id: 'lucky_charm', name: '🍀 Lucky Charm', description: '+10% to all multipliers (10 plays)', cost: 250, duration: 10 },
+        { id: 'golden_ball', name: '⚜️ Golden Ball', description: '2x win amount (5 plays)', cost: 500, duration: 5 },
+        { id: 'shield', name: '🛡️ Loss Shield', description: 'Refund 50% of losses (5 plays)', cost: 300, duration: 5 },
+        { id: 'streak_saver', name: '🔥 Streak Saver', description: 'Keep streak on next loss', cost: 400, duration: 1 },
+        { id: 'jackpot_boost', name: '💎 Jackpot Boost', description: '+50% to edge multipliers (3 plays)', cost: 600, duration: 3 }
+    ],
+    pets: [
+        { id: 'leo', name: '🦁 Leo', description: 'Majestic lion with rare animations', cost: 2000, unlocked: false },
+        { id: 'dragon', name: '🐉 Dragon', description: 'Epic dragon with fire effects', cost: 5000, unlocked: false },
+        { id: 'unicorn', name: '🦄 Unicorn', description: 'Magical unicorn with rainbow trail', cost: 3500, unlocked: false }
+    ],
+    themes: [
+        { id: 'neon', name: '🌃 Neon Nights', description: 'Cyberpunk neon theme', cost: 1500, unlocked: false },
+        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false }
+    ]
+};
+
+const ACHIEVEMENTS = [
+    { id: 'first_win', name: 'First Blood', description: 'Win your first game', reward: 100, icon: '🎯', condition: () => state.stats.gamesPlayed > 0 && state.stats.totalWon > 0 },
+    { id: 'big_spender', name: 'High Roller', description: 'Bet ₱100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
+    { id: 'streak_5', name: 'On Fire!', description: 'Win 5 games in a row', reward: 300, icon: '🔥', condition: () => state.winStreak >= 5 },
+    { id: 'streak_10', name: 'Unstoppable', description: 'Win 10 games in a row', reward: 1000, icon: '⚡', condition: () => state.stats.longestStreak >= 10 },
+    { id: 'millionaire', name: 'Millionaire', description: 'Reach ₱10,000 balance', reward: 500, icon: '💎', condition: () => state.balance >= 10000 },
+    { id: 'games_100', name: 'Century Club', description: 'Play 100 games', reward: 250, icon: '💯', condition: () => state.stats.gamesPlayed >= 100 },
+    { id: 'jackpot', name: 'Jackpot Master', description: 'Hit the highest multiplier', reward: 750, icon: '🎰', condition: () => state.jackpotHit },
+    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ₱0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
+];
+
+const DAILY_CHALLENGES = [
+    { id: 'daily_wins', name: 'Win 10 games', reward: 150, target: 10, icon: '🎲' },
+    { id: 'daily_streak', name: 'Get a 3-win streak', reward: 200, target: 3, icon: '🔥' },
+    { id: 'daily_wagered', name: 'Wager ₱500 total', reward: 100, target: 500, icon: '💰' }
+];
+
 const TUTORIAL_STEPS = [
-    { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal luxury casino experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
-    { title: "Recent History", content: "Track your performance on the left. View your **Bet**, **Multiplier**, and **Profit** (Green for wins, Red for losses). Keep an eye on your winning streak!", target: ".history-pane" },
-    { title: "Your Balance", content: "This displays your current funds. If you ever run out, simply click **Reset Balance** to start fresh with ₱1,000.00.", target: ".balance-section" },
-    { title: "Controls & Settings", content: "Top controls: Click **❓** to replay this guide, **🎵** for music, and **🔊** for sound effects. Enjoy the vibe while you play!", target: ".hud-controls" },
-    { title: "Bet Amount", content: "Input your stake or use quick presets! **MIN/MAX** buttons for extremes, or click preset amounts. Watch the **Max Win** display!", target: ".bet-input-wrapper" },
+    { title: "Welcome to RollyRoyal Plinko!", content: "Step into your personal arcade-like experience. Here, physics and luck combine for big wins. Let's take a quick tour!", target: ".game-pane" },
+    { title: "Recent History", content: "Track your performance on the left. View your Bet, Multiplier, and Profit (Green for wins, Red for losses). Keep an eye on your winning streak!", target: ".history-pane" },
+    { title: "Your Balance", content: "This displays your current funds. If you ever run out, simply click Reset Balance to start fresh with 1,000.00.", target: ".balance-section" },
+    { title: "Controls & Settings", content: "Top controls: Click the Help icon to replay this guide, the Music icon to toggle background tracks, and the Sound icon for sound effects.", target: ".hud-controls" },
+    { title: "Bet Amount", content: "Input your stake or use quick presets! Use the MIN/MAX buttons for extremes. Watch the Max Win display to see your potential payout!", target: ".bet-input-wrapper" },
     { title: "Risk Level", content: "Choose your strategy:<br>• <b>Low</b>: Frequent but smaller wins.<br>• <b>Normal</b>: Balanced risk and reward.<br>• <b>High</b>: High volatility with massive multipliers!", target: "#riskLevel" },
     { title: "Lines (Pegs)", content: "Adjust the number of peg rows (8 to 16 lines). More lines mean more multiplier slots and higher jackpot potential!", target: ".hud-group:has(#linesCount)" },
     { title: "Lucky Pets", content: "Meet your team! Select which pets you want to see. They will celebrate with you whenever you hit those big multipliers!", target: ".collapsible" },
-    { title: "Auto-Play Mode", content: "Want to sit back and watch? Use <b>AUTO PLAY</b> to automatically drop balls at your chosen speed. Build win streaks for bonus multipliers!", target: "#autoPlayBtn" },
-    { title: "Digital Receipt", content: "Want to flex your win? Click <b>Save Receipt</b>! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
+    { title: "Auto-Play Mode", content: "Want to sit back and watch? Use Auto Play to automatically drop balls at your chosen speed. Build win streaks for bonus multipliers!", target: "#autoPlayBtn" },
+    { title: "Digital Receipt", content: "Want to flex your win? Click Save Receipt! It downloads an image of your game board to share with friends or on social media.", target: "#receiptBtn" },
     { title: "Pets Playground", content: "At the bottom, your selected pets walk and play. Watch them celebrate your victories in real-time!", target: ".pets-section" },
-    { title: "Ready, Set, PLAY!", content: "Everything is set! Click <b>PLAY</b> to drop a ball, or spam it for rapid-fire action! Build win streaks 🔥 for bonus multipliers. Good luck!", target: "#playBtn" }
+    { title: "Ready, Set, PLAY!", content: "Everything is set! Click PLAY to drop a ball, or spam it for rapid-fire action! Build win streaks for bonus multipliers. Good luck!", target: "#playBtn" }
 ];
 
 // ============================================================================
@@ -74,15 +124,102 @@ const Storage = {
     }
 };
 
-function playSound(audio) {
-    if (!audio || state.isSfxMuted) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
+// ============================================================================
+// CUSTOM MODAL SYSTEM
+// ============================================================================
+let activeModalResolve = null;
+
+function showCustomModal(title, content, isConfirm, confirmText, cancelText) {
+    return new Promise((resolve) => {
+        activeModalResolve = resolve;
+
+        const overlay = document.getElementById('tutorialOverlay');
+        const box = document.getElementById('tutorialBox');
+        const contentEl = document.getElementById('tutorialContent');
+        const nextBtn = document.getElementById('nextStep');
+        const skipBtn = document.getElementById('skipTutorial');
+        const dots = document.getElementById('stepDots');
+
+        contentEl.innerHTML = `<h3 style="color: var(--gold); margin-bottom: 10px;">${title}</h3><p style="text-align: center; margin: 20px 0;">${content}</p>`;
+
+        if (dots) dots.style.display = 'none';
+
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                closeCustomModal();
+                if (activeModalResolve) activeModalResolve(true);
+            };
+        }
+
+        if (isConfirm && skipBtn) {
+            skipBtn.textContent = cancelText;
+            skipBtn.style.display = 'inline-block';
+            skipBtn.onclick = () => {
+                closeCustomModal();
+                if (activeModalResolve) activeModalResolve(false);
+            };
+        } else if (skipBtn) {
+            skipBtn.style.display = 'none';
+        }
+
+        if (overlay) overlay.classList.remove('hidden');
+        if (box) box.classList.remove('hidden');
+    });
+}
+
+function closeCustomModal() {
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+
+    const nextBtn = document.getElementById('nextStep');
+    const skipBtn = document.getElementById('skipTutorial');
+
+    if (nextBtn) nextBtn.onclick = nextTutorialStep;
+    if (skipBtn) {
+        skipBtn.onclick = endTutorial;
+        skipBtn.textContent = 'Skip';
+        skipBtn.style.display = 'inline-block';
+    }
+
+    const dots = document.getElementById('stepDots');
+    if (dots) dots.style.display = 'flex';
+}
+
+function showAlert(message) {
+    return showCustomModal('Warning', message, false, 'Okay 👌', '');
+}
+
+function showConfirm(message) {
+    return showCustomModal('Confirmation', message, true, 'Yes ✅', 'No ❌');
 }
 
 // ============================================================================
-// STATE
+// STATE & SOUNDS
 // ============================================================================
+const SOUNDS = {
+    winNormal: new Audio('mp3/kaching-sound-fx.mp3'),
+    winHigh: new Audio('mp3/lets-go-gambling-win.mp3'),
+    winJackpot: new Audio('mp3/paldo-nanaman.mp3'),
+    lossLow: new Audio('mp3/malupiton-aray-ko.mp3'),
+    lossHigh: new Audio('mp3/fahhhhh.mp3'),
+    play1: new Audio('mp3/gunshotjbudden.mp3'),
+    play2: new Audio('mp3/pistol-sound-effect_zejYI9w.mp3')
+};
+
+Object.values(SOUNDS).forEach(audio => audio.volume = 0.4);
+
+function playSound(audio) {
+    if (!audio || state.isSfxMuted) return;
+    const now = Date.now();
+    if (audio.lastPlayed && (now - audio.lastPlayed) < 150) return;
+    if (audio.volume === 1) audio.volume = 0.4;
+    audio.lastPlayed = now;
+    audio.currentTime = 0;
+    audio.play().catch(() => { });
+}
+
 let state = {
     balance: Storage.get('balance', CONFIG.INITIAL_BALANCE),
     bet: 10.00,
@@ -98,13 +235,25 @@ let state = {
     autoPlayInterval: null,
     winStreak: 0,
     stats: Storage.get('stats', {
-        gamesPlayed: 0,
-        totalWagered: 0,
-        totalWon: 0,
-        biggestWin: 0,
-        biggestMultiplier: 0,
-        longestStreak: 0
-    })
+        gamesPlayed: 0, totalWagered: 0, totalWon: 0,
+        biggestWin: 0, biggestMultiplier: 0, longestStreak: 0
+    }),
+    history: [],
+    isGameOver: false,
+    borderEffect: { mode: 'idle', timer: 0 },
+
+    // Gamification
+    level: Storage.get('level', 1),
+    xp: Storage.get('xp', 0),
+    coins: Storage.get('coins', 0), // Separate currency for shop
+    activePowerups: Storage.get('activePowerups', []),
+    unlockedItems: Storage.get('unlockedItems', []),
+    achievements: Storage.get('achievements', []),
+    lastLogin: Storage.get('lastLogin', null),
+    dailyProgress: Storage.get('dailyProgress', { wins: 0, streak: 0, wagered: 0 }),
+    biggestBet: Storage.get('biggestBet', 0),
+    jackpotHit: Storage.get('jackpotHit', false),
+    comebackAchieved: Storage.get('comebackAchieved', false)
 };
 
 function saveState() {
@@ -112,6 +261,17 @@ function saveState() {
     Storage.set('stats', state.stats);
     Storage.set('musicMuted', state.isMusicMuted);
     Storage.set('sfxMuted', state.isSfxMuted);
+    Storage.set('level', state.level);
+    Storage.set('xp', state.xp);
+    Storage.set('coins', state.coins);
+    Storage.set('activePowerups', state.activePowerups);
+    Storage.set('unlockedItems', state.unlockedItems);
+    Storage.set('achievements', state.achievements);
+    Storage.set('lastLogin', state.lastLogin);
+    Storage.set('dailyProgress', state.dailyProgress);
+    Storage.set('biggestBet', state.biggestBet);
+    Storage.set('jackpotHit', state.jackpotHit);
+    Storage.set('comebackAchieved', state.comebackAchieved);
 }
 
 // ============================================================================
@@ -157,38 +317,131 @@ const paldoSound = document.getElementById('paldoSound');
 const pegSound = document.getElementById('pegSound');
 const playBtnSound = document.getElementById('playBtnSound');
 const maxBetSound = document.getElementById('maxBetSound');
+const minBetSound = document.getElementById('minBetSound');
 const lossSound = document.getElementById('lossSound');
 
 // ============================================================================
-// TUTORIAL
+// TUTORIAL & HIGHLIGHTING
 // ============================================================================
 function startTutorial() {
     state.tutorialStep = 0;
     state.isTutorialActive = true;
-    document.getElementById('tutorialOverlay').classList.remove('hidden');
-    document.getElementById('tutorialBox').classList.remove('hidden');
+
+    const nextBtn = document.getElementById('nextStep');
+    const skipBtn = document.getElementById('skipTutorial');
+    if (nextBtn) nextBtn.onclick = nextTutorialStep;
+    if (skipBtn) skipBtn.onclick = endTutorial;
+
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
     updateTutorialStep();
 }
 
 function updateTutorialStep() {
-    const step = TUTORIAL_STEPS[state.tutorialStep];
-    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    if (!state.isTutorialActive) return;
 
-    document.getElementById('tutorialContent').innerHTML = `
-        <h3 style="color: var(--gold); margin-bottom: 10px;">${step.title}</h3>
-        <p>${step.content}</p>
-    `;
+    const step = TUTORIAL_STEPS[state.tutorialStep];
+
+    document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
+    document.querySelectorAll('.elevated-pane').forEach(el => {
+        el.classList.remove('elevated-pane');
+        el.style.zIndex = '';
+        el.style.position = '';
+    });
+
+    const contentEl = document.getElementById('tutorialContent');
+    if (contentEl) {
+        contentEl.innerHTML = `
+            <h3 style="color: var(--gold); margin-bottom: 10px;">${step.title}</h3>
+            <p>${step.content}</p>
+        `;
+    }
+
+    const nextBtn = document.getElementById('nextStep');
+    if (nextBtn) nextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
+
+    const dotsEl = document.getElementById('stepDots');
+    if (dotsEl) {
+        dotsEl.innerHTML = TUTORIAL_STEPS.map((_, i) =>
+            `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
+        ).join('');
+    }
 
     const targetEl = document.querySelector(step.target);
-    if (targetEl) targetEl.classList.add('highlight-element');
+    const box = document.getElementById('tutorialBox');
 
-    document.getElementById('nextStep').textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? 'FINISH' : 'NEXT';
-    document.getElementById('stepDots').innerHTML = TUTORIAL_STEPS.map((_, i) =>
-        `<div class="dot ${i === state.tutorialStep ? 'active' : ''}"></div>`
-    ).join('');
+    if (targetEl && box) {
+        targetEl.classList.add('highlight-element');
+
+        const parentPane = targetEl.closest('.hud-pane, .history-pane, .game-pane, .pets-section');
+        if (parentPane) {
+            parentPane.classList.add('elevated-pane');
+            parentPane.style.position = 'relative';
+            parentPane.style.zIndex = '9999';
+        }
+
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        let trackingFrames = 0;
+        const positionBox = () => {
+            if (!state.isTutorialActive) return;
+
+            const rect = targetEl.getBoundingClientRect();
+            const boxWidth = box.offsetWidth;
+            const boxHeight = box.offsetHeight;
+            const padding = 15;
+
+            box.style.transform = 'none';
+            box.style.bottom = 'auto';
+            box.style.right = 'auto';
+
+            if (window.innerWidth <= 768) {
+                box.style.top = 'auto';
+                box.style.bottom = `${padding}px`;
+                box.style.left = '50%';
+                box.style.transform = 'translateX(-50%)';
+            }
+            else {
+                let topPos = rect.top + (rect.height / 2) - (boxHeight / 2);
+                let leftPos = rect.left - boxWidth - padding;
+
+                if (leftPos < padding) {
+                    leftPos = rect.right + padding;
+                    if (leftPos + boxWidth > window.innerWidth - padding) {
+                        leftPos = (window.innerWidth / 2) - (boxWidth / 2);
+                        topPos = rect.bottom + padding;
+                        if (topPos + boxHeight > window.innerHeight - padding) {
+                            topPos = rect.top - boxHeight - padding;
+                        }
+                    }
+                }
+
+                if (topPos < padding) topPos = padding;
+                if (topPos + boxHeight > window.innerHeight - padding) topPos = window.innerHeight - boxHeight - padding;
+                if (leftPos < padding) leftPos = padding;
+                if (leftPos + boxWidth > window.innerWidth - padding) leftPos = window.innerWidth - boxWidth - padding;
+
+                box.style.top = `${topPos}px`;
+                box.style.left = `${leftPos}px`;
+            }
+
+            trackingFrames++;
+            if (trackingFrames < 35) requestAnimationFrame(positionBox);
+        };
+
+        requestAnimationFrame(positionBox);
+    } else if (box) {
+        box.style.top = '50%';
+        box.style.left = '50%';
+        box.style.bottom = 'auto';
+        box.style.transform = 'translate(-50%, -50%)';
+    }
 }
 
 function nextTutorialStep() {
+    if (!state.isTutorialActive) return;
     if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
         state.tutorialStep++;
         updateTutorialStep();
@@ -199,49 +452,70 @@ function nextTutorialStep() {
 
 function endTutorial() {
     state.isTutorialActive = false;
-    document.getElementById('tutorialOverlay').classList.add('hidden');
-    document.getElementById('tutorialBox').classList.add('hidden');
+    const overlay = document.getElementById('tutorialOverlay');
+    const box = document.getElementById('tutorialBox');
+
+    if (overlay) overlay.classList.add('hidden');
+    if (box) {
+        box.classList.add('hidden');
+        box.style.top = '50%';
+        box.style.left = '50%';
+        box.style.right = 'auto';
+        box.style.transform = 'translate(-50%, -50%)';
+    }
+
     document.querySelectorAll('.highlight-element').forEach(el => el.classList.remove('highlight-element'));
     Storage.set('tutorialDone', true);
 }
 
 // ============================================================================
-// PET CLASS
+// 2.5D PET CLASS WITH REFLECTIONS & FIXED JUMP ANIMATION
 // ============================================================================
 class Pet {
     constructor(name) {
         this.name = name;
-        this.config = PET_CONFIGS[name] || { walk: 8, celebrate: 5 };
+        this.config = PET_CONFIGS[name] || { walk: 10, celebrate: 10 };
         this.image = new Image();
-        this.image.src = `Sprites/pets/${name}.png`;
-        this.size = CONFIG.PET_SIZE;
+        const fileName = name === 'alwyn' ? 'Alwyn' :
+            name === 'beto' ? 'Beto' :
+                name === 'gab' ? 'Gab' :
+                    name === 'kyle' ? 'kyle' :
+                        name === 'Renz' ? 'Renz' :
+                            name === 'Colmo' ? 'Colmo' :
+                                name === 'Asher' ? 'Asher' : name;
+        this.image.src = `Sprites/LABOBO/${fileName}.png`;
+        this.size = CONFIG.PET_SIZE * 1.5;
         this.x = Math.random() * (petsCanvas.width - this.size);
-        this.y = petsCanvas.height - this.size - 5;
+        this.y = petsCanvas.height - this.size - 30; // Adjusted for 2.5D stage
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
-        this.state = 'walk';
-        this.celebrateTimer = 0;
+        this.state = 'happy';
+        this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
     }
 
     update() {
-        const maxFrames = this.state === 'celebrate' ? this.config.celebrate : this.config.walk;
+        const maxFrames = 5;
         const now = Date.now();
-        const fps = this.state === 'celebrate' ? 120 : 150;
+        // Pinabagal ang frames kapag jumping (mula 100 naging 200ms)
+        const fps = this.state === 'jackpot' ? 200 : 150;
 
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
             this.lastFrameUpdate = now;
         }
 
-        if (this.state === 'celebrate') {
-            this.celebrateTimer--;
-            if (this.celebrateTimer <= 0) {
-                this.state = 'walk';
-                this.frame = 0;
+        let jumpOffset = 0;
+
+        if (this.state === 'jackpot') {
+            this.timer--;
+            // Smooth Sine Wave Bounce pataas
+            jumpOffset = -Math.abs(Math.sin(this.timer * 0.15)) * 25;
+
+            if (this.timer <= 0) {
+                this.state = 'happy';
                 this.vx = (Math.random() - 0.5) * 1.5;
-                this.direction = this.vx > 0 ? 1 : -1;
             }
         } else {
             this.x += this.vx;
@@ -250,55 +524,173 @@ class Pet {
             this.direction = this.vx > 0 ? 1 : -1;
         }
 
-        this.y = petsCanvas.height - this.size - 5;
+        // Align pet to the 2.5D floor baseline + kasama ang jump
+        this.y = petsCanvas.height - this.size - 30 + jumpOffset;
     }
 
     draw(ctx) {
-        const row = this.state === 'celebrate' ? 1 : 0;
+        const row = this.state === 'jackpot' ? 2 : (this.state === 'sad' ? 1 : 0);
         const s = this.size;
 
         ctx.save();
-        ctx.translate(this.x + s/2, this.y + s/2);
+        ctx.translate(this.x + s / 2, this.y + s / 2);
         if (this.direction === -1) ctx.scale(-1, 1);
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
-                const sw = Math.floor(this.image.naturalWidth / 10);
-                const sh = Math.floor(this.image.naturalHeight / 2);
+                const sw = this.image.naturalWidth / 5;
+                const sh = this.image.naturalHeight / 3;
                 const aspect = sw / sh;
                 const drawH = s;
                 const drawW = s * aspect;
 
-                ctx.drawImage(this.image,
-                    Math.floor(this.frame * sw) + 1, Math.floor(row * sh) + 1,
-                    sw - 2, sh - 2,
-                    -drawW/2, -drawH/2, drawW, drawH);
+                // 2.5D Trick: Draw Reflection underneath!
+                ctx.save();
+                ctx.translate(0, drawH / 2);
+                ctx.scale(1, -0.3);
+                ctx.globalAlpha = 0.2;
+                ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, 0, drawW, drawH);
+                ctx.restore();
+
+                // Draw actual character
+                ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, -drawH / 2, drawW, drawH);
             } else {
                 ctx.fillStyle = '#d4af37';
-                ctx.beginPath(); ctx.arc(0, 0, s/3, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#000'; ctx.font = `bold ${s/4}px sans-serif`;
-                ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s/10);
+                ctx.beginPath(); ctx.arc(0, 0, s / 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.font = `bold ${s / 4}px sans-serif`;
+                ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s / 10);
             }
-        } catch (e) {
-            ctx.fillStyle = '#d4af37'; ctx.fillRect(-s/4, -s/4, s/2, s/2);
-        }
+        } catch (e) { }
         ctx.restore();
     }
 
-    celebrate() {
-        if (this.state === 'celebrate') return;
-        this.state = 'celebrate';
-        this.frame = 0;
-        this.celebrateTimer = 120;
-        this.vx = 0;
+    celebrate(actualMulti) {
+        // EXCEPTION: Lock the state kung tumatalon pa (nasa jackpot state at hindi pa ubos ang timer)
+        if (this.state === 'jackpot' && this.timer > 0) {
+            // Kung jackpot ulit ang nahulog habang tumatalon, i-reset natin ang timer para tuloy lang ang talon
+            if (actualMulti >= 10) {
+                this.timer = Math.max(this.timer, 180);
+            }
+            return; // Balewalain ang ibang states (sad/happy) habang tumatalon
+        }
+
+        if (actualMulti >= 10) {
+            this.state = 'jackpot';
+            this.timer = 180;
+            this.vx = 0;
+            this.frame = 0;
+        } else if (actualMulti >= 1) {
+            this.state = 'happy';
+            if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+        } else {
+            this.state = 'sad';
+            if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+        }
     }
 }
 
 // ============================================================================
-// GAME FUNCTIONS
+// GAME FUNCTIONS & RGB LIGHTS
 // ============================================================================
+function triggerRGBEffect(mode) {
+    state.borderEffect.mode = mode;
+    state.borderEffect.timer = 60; // 1 second animation duration (60 fps)
+}
+
+function drawLightbulbs(ctx, w, h) {
+    const effect = state.borderEffect;
+
+    const spacingX = w / CONFIG.BORDER_LIGHT_COUNT;
+    const spacingY = h / CONFIG.BORDER_LIGHT_COUNT;
+    const bulbSize = 5;
+    const margin = 14;
+
+    const time = Date.now();
+
+    const bulbs = [];
+
+    // Top (Left to Right, skip corners)
+    for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
+        bulbs.push({ x: i * spacingX, y: margin });
+    }
+    // Right (Top to Bottom, skip corners)
+    for (let i = 1; i < CONFIG.BORDER_LIGHT_COUNT; i++) {
+        bulbs.push({ x: w - margin, y: i * spacingY });
+    }
+    // Bottom (Right to Left, skip corners)
+    for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
+        bulbs.push({ x: i * spacingX, y: h - margin });
+    }
+    // Left (Bottom to Top, skip corners)
+    for (let i = CONFIG.BORDER_LIGHT_COUNT - 1; i > 0; i--) {
+        bulbs.push({ x: margin, y: i * spacingY });
+    }
+
+    let globalColor = null;
+    let globalGlow = 0;
+
+    if (effect.timer > 0) {
+        effect.timer--;
+        if (effect.mode === 'win') {
+            globalColor = (Math.floor(effect.timer / 5) % 2 === 0) ? '#39ff14' : '#f9d71c';
+            globalGlow = 25;
+        } else if (effect.mode === 'jackpot') {
+            globalColor = `hsl(${(time * 2) % 360}, 100%, 50%)`;
+            globalGlow = 35;
+        } else if (effect.mode === 'lose') {
+            globalColor = (Math.floor(effect.timer / 5) % 2 === 0) ? '#ff1744' : '#4a0404';
+            globalGlow = 15;
+        }
+    } else {
+        state.borderEffect.mode = 'idle';
+    }
+
+    const totalBulbs = bulbs.length;
+    const speed = 25;
+    const headIndex = Math.floor(time / speed) % totalBulbs;
+
+    bulbs.forEach((bulb, index) => {
+        let color = globalColor;
+        let glow = globalGlow;
+
+        ctx.save();
+
+        if (!color) {
+            if (state.autoPlay) {
+                // AutoPlay Marquee
+                let dist = (headIndex - index + totalBulbs) % totalBulbs;
+                let tailLength = 15;
+
+                if (dist < tailLength) {
+                    let hue = 180 + (dist * 2);
+                    let lightness = 60 - (dist * 3);
+                    color = `hsl(${hue}, 100%, ${lightness}%)`;
+                    glow = 20 - dist;
+                } else {
+                    color = 'rgba(0, 229, 255, 0.05)';
+                    glow = 0;
+                }
+            } else {
+                // Idle Pattern
+                color = `hsl(${(time / 15 + index * 2) % 360}, 100%, 60%)`;
+                glow = 10 + Math.sin(time / 200) * 5;
+            }
+        }
+
+        ctx.shadowBlur = glow;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+
+        ctx.beginPath();
+        ctx.arc(bulb.x, bulb.y, bulbSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
 function dropBall() {
-    playSound(playBtnSound);
+    const randomPlaySound = Math.random() > 0.5 ? SOUNDS.play1 : SOUNDS.play2;
+    playSound(randomPlaySound);
     const spacing = Math.min(plinkoCanvas.width / (state.lines + 2), plinkoCanvas.height / (state.lines + 3));
     const ballX = plinkoCanvas.width / 2 + (Math.random() - 0.5) * 10;
 
@@ -310,7 +702,7 @@ function dropBall() {
     else color = '#4caf50';
 
     balls.push({
-        x: ballX, y: 20,
+        x: ballX, y: 30, // Dropped lower to avoid clipping top lights
         vx: (Math.random() - 0.5) * 2, vy: 0,
         radius: Math.max(2, spacing * 0.15),
         color: color,
@@ -331,6 +723,132 @@ function createConfetti(x, y) {
             rotationSpeed: (Math.random() - 0.5) * 0.3
         });
     }
+}
+
+// ============================================================================
+// GAMIFICATION LOGIC
+// ============================================================================
+function checkDailyLogin() {
+    const today = new Date().toDateString();
+    if (state.lastLogin !== today) {
+        state.lastLogin = today;
+        state.balance += CONFIG.DAILY_REWARD;
+        state.coins += 50;
+        state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
+        showAlert(`Daily Reward! 🎁<br>+₱${CONFIG.DAILY_REWARD.toFixed(2)} Balance<br>+50 Coins`);
+        saveState();
+    }
+}
+
+function addXP(amount) {
+    state.xp += amount;
+    const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+
+    if (state.xp >= xpNeeded) {
+        state.xp -= xpNeeded;
+        state.level++;
+        const coinReward = state.level * 100;
+        state.coins += coinReward;
+        showAlert(`🎉 Level Up!<br>Level ${state.level}<br>+${coinReward} Coins`);
+        playSound(new Audio('mp3/paldo-nanaman.mp3'));
+    }
+    updateLevelDisplay();
+    saveState();
+}
+
+function checkAchievements() {
+    ACHIEVEMENTS.forEach(ach => {
+        if (!state.achievements.includes(ach.id) && ach.condition()) {
+            state.achievements.push(ach.id);
+            state.balance += ach.reward;
+            state.coins += ach.reward / 2;
+            showAlert(`🏆 Achievement Unlocked!<br>${ach.icon} ${ach.name}<br>+₱${ach.reward} & +${ach.reward/2} Coins`);
+            playSound(new Audio('mp3/paldo-nanaman.mp3'));
+            saveState();
+        }
+    });
+}
+
+function activatePowerup(powerupId) {
+    const powerup = SHOP_ITEMS.powerups.find(p => p.id === powerupId);
+    if (!powerup) return;
+
+    if (state.coins < powerup.cost) {
+        showAlert('Not enough coins! 💰');
+        return;
+    }
+
+    state.coins -= powerup.cost;
+    state.activePowerups.push({
+        id: powerup.id,
+        name: powerup.name,
+        remaining: powerup.duration
+    });
+
+    showAlert(`${powerup.name} activated!<br>${powerup.duration} plays remaining`);
+    updatePowerupDisplay();
+    saveState();
+}
+
+function consumePowerup(powerupId) {
+    const powerup = state.activePowerups.find(p => p.id === powerupId);
+    if (!powerup) return;
+
+    powerup.remaining--;
+    if (powerup.remaining <= 0) {
+        state.activePowerups = state.activePowerups.filter(p => p.id !== powerupId);
+        showAlert(`${powerup.name} expired! 💨`);
+    }
+
+    updatePowerupDisplay();
+    saveState();
+}
+
+function applyPowerups(multiplier, winAmount) {
+    let boostedMulti = multiplier;
+    let boostedWin = winAmount;
+
+    state.activePowerups.forEach(powerup => {
+        switch(powerup.id) {
+            case 'lucky_charm':
+                boostedMulti *= 1.1;
+                break;
+            case 'golden_ball':
+                boostedWin *= 2;
+                break;
+            case 'jackpot_boost':
+                if (multiplier >= 10) boostedMulti *= 1.5;
+                break;
+        }
+    });
+
+    return { multiplier: boostedMulti, winAmount: boostedWin };
+}
+
+function handleLoss(betAmount) {
+    let refund = 0;
+
+    // Shield powerup
+    const shield = state.activePowerups.find(p => p.id === 'shield');
+    if (shield) {
+        refund = betAmount * 0.5;
+        state.balance += refund;
+        consumePowerup('shield');
+    }
+
+    return refund;
+}
+
+function handleStreakLoss() {
+    // Streak saver powerup
+    const streakSaver = state.activePowerups.find(p => p.id === 'streak_saver');
+    if (streakSaver && state.winStreak > 0) {
+        // Don't reset streak
+        consumePowerup('streak_saver');
+        showAlert('🛡️ Streak Saved!');
+        return true; // Streak was saved
+    }
+    return false; // Streak not saved
 }
 
 function updatePhysics() {
@@ -371,6 +889,7 @@ function updatePhysics() {
         });
 
         if (ball.y > plinkoCanvas.height + 50 || ball.x < -50 || ball.x > plinkoCanvas.width + 50) {
+            playSound(SOUNDS.lossHigh);
             balls.splice(i, 1);
         }
     }
@@ -392,13 +911,31 @@ function updatePhysics() {
         p.rotation += p.rotationSpeed;
         if (p.life <= 0 || p.y > plinkoCanvas.height) confetti.splice(i, 1);
     }
+
+    if (balls.length === 0 && state.balance < CONFIG.MIN_BET) {
+        if (!state.isGameOver) {
+            showGameOver();
+        }
+    } else if (balls.length === 0 && state.balance >= CONFIG.MIN_BET) {
+        state.isGameOver = false;
+    }
 }
 
 function handleWin(multiplier, slotIdx, slot) {
     let actualMulti = multiplier;
 
+    // Check for comeback achievement
+    if (state.balance <= 0 && multiplier >= 1) {
+        state.comebackAchieved = true;
+    }
+
     if (multiplier >= 1) {
         state.winStreak++;
+        state.dailyProgress.wins++;
+        if (state.winStreak > state.dailyProgress.streak) {
+            state.dailyProgress.streak = state.winStreak;
+        }
+
         if (state.winStreak > CONFIG.STREAK_BONUS_START) {
             const bonus = Math.floor((state.winStreak - CONFIG.STREAK_BONUS_START) * CONFIG.STREAK_BONUS_RATE * 10) / 10;
             actualMulti = multiplier + bonus;
@@ -406,15 +943,60 @@ function handleWin(multiplier, slotIdx, slot) {
         if (state.winStreak > state.stats.longestStreak) {
             state.stats.longestStreak = state.winStreak;
         }
-        playSound(collectSound);
-        playSound(paldoSound);
+
+        // Check for jackpot achievement
+        if (multiplier >= 100) {
+            state.jackpotHit = true;
+        }
+
+        if (actualMulti >= 10) {
+            playSound(new Audio('mp3/paldo-nanaman.mp3'));
+            triggerRGBEffect('jackpot');
+        } else if (actualMulti >= 3) {
+            playSound(new Audio('mp3/lets-go-gambling-win.mp3'));
+            triggerRGBEffect('win');
+        } else {
+            playSound(new Audio('mp3/kaching-sound-fx.mp3'));
+            triggerRGBEffect('win');
+        }
+
+        // Add XP for winning
+        addXP(CONFIG.XP_PER_WIN);
+
+        // Consume powerups
+        state.activePowerups.forEach(p => consumePowerup(p.id));
     } else {
-        state.winStreak = 0;
-        playSound(lossSound);
+        // Handle loss
+        const refund = handleLoss(state.bet);
+
+        // Check streak saver
+        if (!handleStreakLoss()) {
+            state.winStreak = 0; // Reset streak if not saved
+        }
+
+        if (refund === 0) {
+            playSound(lossSound);
+            triggerRGBEffect('lose');
+        }
+
+        // Add small XP even for losses
+        addXP(CONFIG.XP_PER_GAME);
     }
 
-    const winAmount = state.bet * actualMulti;
+    let winAmount = state.bet * actualMulti;
+
+    // Apply powerups
+    const boosted = applyPowerups(actualMulti, winAmount);
+    actualMulti = boosted.multiplier;
+    winAmount = boosted.winAmount;
+
     state.balance += winAmount;
+
+    // Award coins based on win
+    if (multiplier >= 1) {
+        const coinReward = Math.floor(winAmount / 10);
+        state.coins += coinReward;
+    }
 
     if (!slotHeat[slotIdx]) slotHeat[slotIdx] = 0;
     slotHeat[slotIdx] = Math.min(slotHeat[slotIdx] + 1, 5);
@@ -423,9 +1005,13 @@ function handleWin(multiplier, slotIdx, slot) {
 
     state.stats.gamesPlayed++;
     state.stats.totalWagered += state.bet;
+    state.dailyProgress.wagered += state.bet;
     state.stats.totalWon += winAmount;
     if (winAmount > state.stats.biggestWin) state.stats.biggestWin = winAmount;
     if (actualMulti > state.stats.biggestMultiplier) state.stats.biggestMultiplier = actualMulti;
+
+    // Check achievements
+    checkAchievements();
 
     saveState();
     updateDisplay();
@@ -442,16 +1028,55 @@ function handleWin(multiplier, slotIdx, slot) {
         winEffects.push({ text, x: plinkoCanvas.width / 2, y: plinkoCanvas.height / 2, opacity: 1, rotation: 0 });
     }
 
-    if (actualMulti > 2) {
-        pets.forEach(p => { if (state.activePets.has(p.name)) p.celebrate(); });
-    } else if (actualMulti >= 1) {
-        const active = pets.filter(p => state.activePets.has(p.name));
-        if (active.length > 0) active[Math.floor(Math.random() * active.length)].celebrate();
+    pets.forEach(p => {
+        if (state.activePets.has(p.name)) p.celebrate(actualMulti);
+    });
+}
+
+function showGameOver() {
+    if (state.isGameOver && !document.getElementById('gameOverOverlay').classList.contains('hidden')) return;
+    state.isGameOver = true;
+    if (state.autoPlay) {
+        const autoBtn = document.getElementById('autoPlayBtn');
+        if (autoBtn) autoBtn.click();
+    }
+    const overlay = document.getElementById('gameOverOverlay');
+    const box = document.getElementById('gameOverBox');
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+
+    const catLaugh = document.getElementById('catLaughSound');
+    const tuco = document.getElementById('tucoSound');
+
+    if (!state.isSfxMuted) {
+        if (catLaugh) {
+            catLaugh.currentTime = 0;
+            catLaugh.play().catch(() => { });
+
+            catLaugh.onended = () => {
+                if (!state.isSfxMuted && state.isGameOver && tuco) {
+                    tuco.currentTime = 0;
+                    tuco.play().catch(() => { });
+                }
+            };
+        }
     }
 }
 
+function hideGameOver() {
+    const overlay = document.getElementById('gameOverOverlay');
+    const box = document.getElementById('gameOverBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+
+    const catLaugh = document.getElementById('catLaughSound');
+    const tuco = document.getElementById('tucoSound');
+    if (catLaugh) catLaugh.pause();
+    if (tuco) tuco.pause();
+}
+
 function updateDisplay() {
-    balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
+    if (balanceEl) balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
 
     const streakEl = document.getElementById('streakDisplay');
     if (streakEl) {
@@ -468,6 +1093,48 @@ function updateDisplay() {
         const maxMulti = Math.max(...(MULTIPLIERS[state.lines]?.[state.risk] || [1]));
         const maxWin = state.bet * maxMulti;
         maxWinEl.textContent = `Max: ₱${maxWin.toFixed(2)} (${maxMulti}x)`;
+    }
+
+    updateLevelDisplay();
+    updateCoinDisplay();
+    updatePowerupDisplay();
+}
+
+function updateLevelDisplay() {
+    const levelEl = document.getElementById('levelDisplay');
+    if (levelEl) {
+        const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+        const progress = Math.floor((state.xp / xpNeeded) * 100);
+        levelEl.innerHTML = `
+            <div class="level-badge">
+                <span class="level-number">Lv.${state.level}</span>
+            </div>
+            <div class="xp-bar-container">
+                <div class="xp-bar" style="width: ${progress}%"></div>
+                <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
+            </div>
+        `;
+    }
+}
+
+function updateCoinDisplay() {
+    const coinEl = document.getElementById('coinDisplay');
+    if (coinEl) {
+        coinEl.textContent = `🪙 ${state.coins} Coins`;
+    }
+}
+
+function updatePowerupDisplay() {
+    const powerupEl = document.getElementById('activePowerupsDisplay');
+    if (powerupEl && state.activePowerups.length > 0) {
+        powerupEl.innerHTML = state.activePowerups.map(p => `
+            <div class="active-powerup">
+                ${p.name} (${p.remaining})
+            </div>
+        `).join('');
+        powerupEl.style.display = 'block';
+    } else if (powerupEl) {
+        powerupEl.style.display = 'none';
     }
 }
 
@@ -490,8 +1157,12 @@ function updateStatsDisplay() {
 }
 
 function addHistoryEntry(bet, multi) {
-    const historyList = document.getElementById('historyList');
     const profit = bet * multi;
+    state.history.unshift({ bet, multi, profit });
+    if (state.history.length > CONFIG.MAX_HISTORY) state.history.pop();
+
+    const historyList = document.getElementById('historyList');
+    if (!historyList) return;
     const entry = document.createElement('div');
     entry.className = 'history-entry';
     entry.innerHTML = `
@@ -508,11 +1179,13 @@ function addHistoryEntry(bet, multi) {
 function generateBoard() {
     pegs = []; slots = []; slotHeat = [];
     const rows = state.lines;
-    const startY = 40;
+    const startY = 55;
     const slotHeight = 30;
+
+    const padding = 60;
     const availableHeight = plinkoCanvas.height - startY - slotHeight - 40;
     const maxSpacingH = availableHeight / (rows + 0.8);
-    const maxSpacingW = (plinkoCanvas.width - 40) / (rows + 2);
+    const maxSpacingW = (plinkoCanvas.width - padding) / (rows + 2);
     const spacing = Math.min(maxSpacingW, maxSpacingH);
 
     for (let r = 1; r <= rows; r++) {
@@ -554,104 +1227,192 @@ function resizeCanvases() {
 
 function updateControlsState() {
     const isBusy = balls.length > 0;
-    document.getElementById('riskLevel').disabled = isBusy;
-    document.getElementById('linesCount').disabled = isBusy;
+    const riskEl = document.getElementById('riskLevel');
+    const linesEl = document.getElementById('linesCount');
+    if (riskEl) riskEl.disabled = isBusy;
+    if (linesEl) linesEl.disabled = isBusy;
 
-    [document.getElementById('riskLevel'), document.getElementById('linesCount')].forEach(el => {
-        el.style.opacity = isBusy ? '0.5' : '1';
-        el.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+    [riskEl, linesEl].forEach(el => {
+        if (el) {
+            el.style.opacity = isBusy ? '0.5' : '1';
+            el.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+        }
     });
 }
 
 // ============================================================================
-// DRAW
+// 2.5D ARCADE STAGE DRAWING
+// ============================================================================
+function drawPetStage() {
+    petsCtx.clearRect(0, 0, petsCanvas.width, petsCanvas.height);
+    const w = petsCanvas.width;
+    const h = petsCanvas.height;
+
+    // 1. Background Wall
+    petsCtx.fillStyle = '#05060a';
+    petsCtx.fillRect(0, 0, w, h);
+
+    // 2. Spotlights
+    const spotGrad = petsCtx.createRadialGradient(w / 2, 0, 20, w / 2, h / 2, h);
+    spotGrad.addColorStop(0, 'rgba(212, 175, 55, 0.15)');
+    spotGrad.addColorStop(1, 'transparent');
+    petsCtx.fillStyle = spotGrad;
+    petsCtx.fillRect(0, 0, w, h);
+
+    // 3. Isometric / Perspective Floor
+    const floorTopY = h - 60;
+    const floorBottomY = h - 15;
+
+    petsCtx.beginPath();
+    petsCtx.moveTo(w * 0.05, floorTopY); // Top Left 
+    petsCtx.lineTo(w * 0.95, floorTopY); // Top Right
+    petsCtx.lineTo(w, floorBottomY);     // Bottom Right
+    petsCtx.lineTo(0, floorBottomY);     // Bottom Left
+    petsCtx.closePath();
+
+    // Floor Gradient 
+    const floorGrad = petsCtx.createLinearGradient(0, floorTopY, 0, floorBottomY);
+    floorGrad.addColorStop(0, '#0b0d17');
+    floorGrad.addColorStop(1, '#1a1d2d');
+    petsCtx.fillStyle = floorGrad;
+    petsCtx.fill();
+
+    // 4. Perspective Grid Lines
+    petsCtx.strokeStyle = 'rgba(212, 175, 55, 0.1)';
+    petsCtx.lineWidth = 1;
+    // Vertical receding lines
+    for (let i = 1; i < 10; i++) {
+        petsCtx.beginPath();
+        let topX = w * 0.05 + (w * 0.9 * (i / 10));
+        let bottomX = w * (i / 10);
+        petsCtx.moveTo(topX, floorTopY);
+        petsCtx.lineTo(bottomX, floorBottomY);
+        petsCtx.stroke();
+    }
+    // Horizontal perspective lines
+    petsCtx.beginPath(); petsCtx.moveTo(w * 0.035, floorTopY + 15); petsCtx.lineTo(w * 0.965, floorTopY + 15); petsCtx.stroke();
+    petsCtx.beginPath(); petsCtx.moveTo(w * 0.015, floorTopY + 32); petsCtx.lineTo(w * 0.985, floorTopY + 32); petsCtx.stroke();
+
+    // 5. Stage Front Lip
+    petsCtx.fillStyle = '#d4af37';
+    petsCtx.fillRect(0, floorBottomY, w, 3);
+    petsCtx.fillStyle = '#05060a';
+    petsCtx.fillRect(0, floorBottomY + 3, w, h - floorBottomY);
+
+    // Glowing Gold Outline
+    petsCtx.shadowColor = '#f9d71c';
+    petsCtx.shadowBlur = 10;
+    petsCtx.strokeStyle = '#d4af37';
+    petsCtx.lineWidth = 2;
+    petsCtx.beginPath();
+    petsCtx.moveTo(0, floorBottomY);
+    petsCtx.lineTo(w, floorBottomY);
+    petsCtx.stroke();
+    petsCtx.shadowBlur = 0;
+
+    // Draw the pets on top of this stage
+    pets.forEach(pet => {
+        if (state.activePets.has(pet.name)) {
+            pet.update();
+            pet.draw(petsCtx);
+        }
+    });
+}
+
+// ============================================================================
+// DRAW - FLAT 2D PLINKO BOARD
 // ============================================================================
 function draw() {
     updatePhysics();
     updateControlsState();
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
+    // 1. FLAT BACKGROUND
     if (!cachedBgGradient) {
-        cachedBgGradient = plinkoCtx.createRadialGradient(
-            plinkoCanvas.width / 2, plinkoCanvas.height / 2, 50,
-            plinkoCanvas.width / 2, plinkoCanvas.height / 2, plinkoCanvas.width
-        );
-        cachedBgGradient.addColorStop(0, '#1a1d2d');
-        cachedBgGradient.addColorStop(1, '#0b0d17');
+        // Gumamit ng solid o simpleng linear gradient imbes na radial para sa flat look
+        cachedBgGradient = '#05060a';
     }
     plinkoCtx.fillStyle = cachedBgGradient;
     plinkoCtx.fillRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
-    plinkoCtx.fillStyle = '#ffffff';
-    pegs.forEach(peg => { plinkoCtx.beginPath(); plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2); plinkoCtx.fill(); });
+    drawLightbulbs(plinkoCtx, plinkoCanvas.width, plinkoCanvas.height);
 
+    const getSlotColor = (m) => {
+        if (m >= 100) return '#d500f9';
+        if (m >= 25) return '#ff1744';
+        if (m >= 5) return '#ff6d00';
+        if (m >= 2) return '#f9d71c';
+        if (m >= 1) return '#ffea00';
+        return '#00e676';
+    };
+
+    // 2. FLAT PEGS (Simpleng Circles)
+    pegs.forEach(peg => {
+        // Tinanggal ang shadow, body layers, at specular highlight.
+        // Isang simpleng flat circle na may border.
+        plinkoCtx.fillStyle = '#e0e0e0';
+        plinkoCtx.strokeStyle = '#555555'; // Darker gray outline
+        plinkoCtx.lineWidth = 1;
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
+        plinkoCtx.fill();
+        plinkoCtx.stroke();
+    });
+
+    // 3 & 5. SLOTS (Merged and Flattened)
+    // Pinagsama ang Pass 1 at Pass 2 para sa isang solid, flat na disenyo na may borderlines.
     slots.forEach((slot, idx) => {
         const m = slot.multiplier;
-        let baseColor, topColor, bottomColor;
-
-        if (m >= 100) { baseColor = '#d500f9'; topColor = '#f50057'; bottomColor = '#4a148c'; }
-        else if (m >= 25) { baseColor = '#ff1744'; topColor = '#ff5252'; bottomColor = '#b71c1c'; }
-        else if (m >= 5) { baseColor = '#ff6d00'; topColor = '#ff9100'; bottomColor = '#bf360c'; }
-        else if (m >= 2) { baseColor = '#ffab00'; topColor = '#ffd740'; bottomColor = '#ff6f00'; }
-        else if (m >= 1) { baseColor = '#ffea00'; topColor = '#ffff8d'; bottomColor = '#f57f17'; }
-        else { baseColor = '#00e676'; topColor = '#69f0ae'; bottomColor = '#1b5e20'; }
-
-        slot.color = baseColor;
-
+        const color = getSlotColor(m);
         const pulse = slotPulses.find(p => p.slotIndex === idx);
-        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.15 : 1;
-        const heat = slotHeat[idx] || 0;
+        const pulseScale = pulse ? 1 + (pulse.life / 30) * 0.1 : 1;
 
         plinkoCtx.save();
         plinkoCtx.translate(slot.x + slot.width / 2, slot.y + slot.height / 2);
         plinkoCtx.scale(pulseScale, pulseScale);
         plinkoCtx.translate(-(slot.x + slot.width / 2), -(slot.y + slot.height / 2));
 
-        if (heat > 0.5) {
-            plinkoCtx.shadowColor = baseColor;
-            plinkoCtx.shadowBlur = heat * 10;
-        }
-
-        const slotGradient = plinkoCtx.createLinearGradient(slot.x, slot.y, slot.x, slot.y + slot.height);
-        slotGradient.addColorStop(0, topColor);
-        slotGradient.addColorStop(0.4, baseColor);
-        slotGradient.addColorStop(1, bottomColor);
-
-        plinkoCtx.fillStyle = slotGradient;
+        // A. TINTED FLAT BACKGROUND
+        plinkoCtx.fillStyle = color;
+        plinkoCtx.globalAlpha = 0.2; // Slightly higher alpha para mas kita sa flat BG
         plinkoCtx.beginPath();
-        plinkoCtx.roundRect(slot.x + 2, slot.y, slot.width - 4, slot.height, 6);
+        // Gumamit ng rect imbes na roundRect para sa mas matalas na flat look (optional)
+        plinkoCtx.rect(slot.x, slot.y, slot.width, slot.height);
         plinkoCtx.fill();
+        plinkoCtx.globalAlpha = 1.0;
 
-        plinkoCtx.shadowBlur = 0;
+        // B. FLAT BORDERLINES (Ito ang nagpapabago sa look)
+        plinkoCtx.strokeStyle = color;
+        plinkoCtx.lineWidth = 2; // Solid na linya sa paligid
 
-        plinkoCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        plinkoCtx.lineWidth = 2;
-        plinkoCtx.beginPath();
-        plinkoCtx.moveTo(slot.x + 6, slot.y + 2);
-        plinkoCtx.lineTo(slot.x + slot.width - 6, slot.y + 2);
-        plinkoCtx.stroke();
-
-        plinkoCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        plinkoCtx.lineWidth = 1;
-        plinkoCtx.strokeRect(slot.x + 2, slot.y, slot.width - 4, slot.height);
-
-        if (heat > 1) {
-            plinkoCtx.fillStyle = 'rgba(255, 100, 0, 0.3)';
-            plinkoCtx.fillRect(slot.x + 2, slot.y, slot.width - 4, 3);
+        // Heat effect ay flat stroke glow na lang, hindi blur
+        const heat = slotHeat[idx] || 0;
+        if (heat > 0.5) {
+            plinkoCtx.lineWidth = 2 + heat; // Kumakapal ang linya kapag mainit
         }
 
-        plinkoCtx.fillStyle = '#000';
-        plinkoCtx.font = `bold ${Math.max(8, slot.width * 0.28)}px sans-serif`;
+        plinkoCtx.strokeRect(slot.x, slot.y, slot.width, slot.height);
+
+        // C. TEXT (Pina-simple ang shadow)
+        let displayMulti = m >= 1000 ? (m / 1000) + 'k' : m;
+        let textStr = `${displayMulti}x`;
+        let fontSize = slot.width * 0.45;
+        if (textStr.length >= 4) {
+            fontSize = slot.width * 0.35;
+        }
+
+        plinkoCtx.fillStyle = color;
+        plinkoCtx.font = `900 ${fontSize}px sans-serif`;
         plinkoCtx.textAlign = 'center';
-        plinkoCtx.shadowColor = 'rgba(255,255,255,0.2)';
-        plinkoCtx.shadowBlur = 2;
-        plinkoCtx.fillText(`${slot.multiplier}x`, slot.x + slot.width / 2, slot.y + slot.height * 0.7);
-        plinkoCtx.shadowBlur = 0;
+        // Tinanggal ang shadow blur sa text para malinis
+        plinkoCtx.fillText(textStr, slot.x + slot.width / 2, slot.y + slot.height * 0.65, slot.width - 4);
 
         plinkoCtx.restore();
     });
 
+    // 4. FLAT BALLS
     balls.forEach(ball => {
+        // Trail (Nananatili dahil flat naman ito)
         if (ball.trail && ball.trail.length > 1) {
             for (let i = 0; i < ball.trail.length - 1; i++) {
                 const alpha = (i + 1) / ball.trail.length;
@@ -664,15 +1425,20 @@ function draw() {
             plinkoCtx.globalAlpha = 1;
         }
 
-        plinkoCtx.shadowColor = ball.color;
-        plinkoCtx.shadowBlur = 8;
+        // Tinanggal ang Ball Shadow sa ilalim.
+        // Tinanggal ang Gradient Highlight sa ibabaw.
+
+        // Isang solid color circle na lang na may manipis na border para di magmukhang flat icon lang
         plinkoCtx.fillStyle = ball.color;
+        plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+        plinkoCtx.lineWidth = 1;
         plinkoCtx.beginPath();
         plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
         plinkoCtx.fill();
-        plinkoCtx.shadowBlur = 0;
+        plinkoCtx.stroke();
     });
 
+    // 6. FX (Confetti & Text - Nananatiling flat)
     confetti.forEach(p => {
         plinkoCtx.save();
         plinkoCtx.translate(p.x, p.y);
@@ -687,23 +1453,109 @@ function draw() {
         const effect = winEffects[i];
         plinkoCtx.save(); plinkoCtx.translate(effect.x, effect.y); plinkoCtx.rotate(effect.rotation);
         plinkoCtx.globalAlpha = effect.opacity; plinkoCtx.fillStyle = '#f9d71c';
-        plinkoCtx.shadowBlur = 15; plinkoCtx.shadowColor = '#f9d71c';
-        plinkoCtx.font = 'bold 40px serif'; plinkoCtx.textAlign = 'center';
+
+        // Flattened win text shadow
+        plinkoCtx.shadowBlur = 5; // Reduced drastically
+        plinkoCtx.shadowColor = '#f9d71c';
+
+        plinkoCtx.font = '900 40px sans-serif'; plinkoCtx.textAlign = 'center';
         plinkoCtx.fillText(effect.text, 0, 0); plinkoCtx.restore();
         effect.opacity -= 0.02; effect.rotation += 0.05; effect.y -= 1;
         if (effect.opacity <= 0) winEffects.splice(i, 1);
     }
 
-    petsCtx.fillStyle = '#0b0d17'; petsCtx.fillRect(0, 0, petsCanvas.width, petsCanvas.height);
-    pets.forEach(pet => { if (state.activePets.has(pet.name)) { pet.update(); pet.draw(petsCtx); } });
+    drawPetStage();
     requestAnimationFrame(draw);
 }
 
 // ============================================================================
 // INIT
 // ============================================================================
+// SHOP & ACHIEVEMENTS UI
+// ============================================================================
+function openShop() {
+    const overlay = document.getElementById('shopOverlay');
+    const box = document.getElementById('shopBox');
+    const shopCoins = document.getElementById('shopCoins');
+
+    if (shopCoins) shopCoins.textContent = `🪙 ${state.coins} Coins`;
+
+    // Render powerups
+    const powerupsEl = document.getElementById('powerupsShop');
+    if (powerupsEl) {
+        powerupsEl.innerHTML = SHOP_ITEMS.powerups.map(item => `
+            <div class="shop-item">
+                <div class="shop-item-header">
+                    <span class="shop-item-name">${item.name}</span>
+                    <span class="shop-item-cost">🪙 ${item.cost}</span>
+                </div>
+                <p class="shop-item-desc">${item.description}</p>
+                <button class="buy-btn" data-item="${item.id}" ${state.coins < item.cost ? 'disabled' : ''}>
+                    ${state.coins < item.cost ? 'Not Enough Coins' : 'Buy'}
+                </button>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        powerupsEl.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const itemId = btn.dataset.item;
+                activatePowerup(itemId);
+                openShop(); // Refresh
+            });
+        });
+    }
+
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+}
+
+function closeShop() {
+    const overlay = document.getElementById('shopOverlay');
+    const box = document.getElementById('shopBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+}
+
+function openAchievements() {
+    const overlay = document.getElementById('achievementsOverlay');
+    const box = document.getElementById('achievementsBox');
+    const content = document.getElementById('achievementsContent');
+
+    if (content) {
+        content.innerHTML = ACHIEVEMENTS.map(ach => {
+            const unlocked = state.achievements.includes(ach.id);
+            const progress = ach.condition() ? '100%' : '0%';
+
+            return `
+                <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <div class="achievement-icon">${ach.icon}</div>
+                    <div class="achievement-details">
+                        <div class="achievement-name">${ach.name}</div>
+                        <div class="achievement-desc">${ach.description}</div>
+                        <div class="achievement-reward">Reward: ₱${ach.reward} + 🪙${ach.reward/2}</div>
+                    </div>
+                    <div class="achievement-status">
+                        ${unlocked ? '✅ Unlocked' : '🔒 Locked'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (overlay) overlay.classList.remove('hidden');
+    if (box) box.classList.remove('hidden');
+}
+
+function closeAchievements() {
+    const overlay = document.getElementById('achievementsOverlay');
+    const box = document.getElementById('achievementsBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+}
+
+// ============================================================================
 function initHUD() {
-    // Collapsible sections
     ['petsToggleHeader', 'statsToggleHeader'].forEach(id => {
         const header = document.getElementById(id);
         if (!header) return;
@@ -714,58 +1566,85 @@ function initHUD() {
         });
     });
 
-    // Tutorial
-    document.getElementById('tutorialBtn').addEventListener('click', startTutorial);
-    document.getElementById('nextStep').addEventListener('click', nextTutorialStep);
-    document.getElementById('skipTutorial').addEventListener('click', endTutorial);
-    setTimeout(startTutorial, 500);
+    const tutorialBtn = document.getElementById('tutorialBtn');
+    if (tutorialBtn) tutorialBtn.addEventListener('click', startTutorial);
 
-    // Pet toggles
+    const shopBtn = document.getElementById('shopBtn');
+    if (shopBtn) shopBtn.addEventListener('click', openShop);
+
+    const closeShopBtn = document.getElementById('closeShop');
+    if (closeShopBtn) closeShopBtn.addEventListener('click', closeShop);
+
+    const achievementsBtn = document.getElementById('achievementsBtn');
+    if (achievementsBtn) achievementsBtn.addEventListener('click', openAchievements);
+
+    const closeAchievementsBtn = document.getElementById('closeAchievements');
+    if (closeAchievementsBtn) closeAchievementsBtn.addEventListener('click', closeAchievements);
+
+    const nextStepBtn = document.getElementById('nextStep');
+    if (nextStepBtn) nextStepBtn.onclick = nextTutorialStep;
+
+    const skipTutorialBtn = document.getElementById('skipTutorial');
+    if (skipTutorialBtn) skipTutorialBtn.onclick = endTutorial;
+
+    if (!Storage.get('tutorialDone', false)) {
+        setTimeout(startTutorial, 500);
+    }
+
     const petTogglesEl = document.getElementById('petToggles');
-    PET_NAMES.forEach(name => {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `
-            <input type="checkbox" id="pet-${name}" class="pet-checkbox" checked>
-            <label for="pet-${name}" class="pet-label">${name}</label>
-        `;
-        const checkbox = wrapper.querySelector('input');
-        checkbox.addEventListener('change', (e) => {
-            if (e.target.checked) state.activePets.add(name);
-            else state.activePets.delete(name);
+    if (petTogglesEl) {
+        PET_NAMES.forEach(name => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+                <input type="checkbox" id="pet-${name}" class="pet-checkbox" checked>
+                <label for="pet-${name}" class="pet-label">${name}</label>
+            `;
+            const checkbox = wrapper.querySelector('input');
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) state.activePets.add(name);
+                else state.activePets.delete(name);
+            });
+            petTogglesEl.appendChild(wrapper.firstElementChild);
+            petTogglesEl.appendChild(wrapper.lastElementChild);
         });
-        petTogglesEl.appendChild(wrapper.firstElementChild);
-        petTogglesEl.appendChild(wrapper.lastElementChild);
-    });
+    }
 
-    // Bet controls
-    betInput.addEventListener('change', (e) => {
-        state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
-        betInput.value = state.bet.toFixed(2);
-        updateDisplay();
-    });
-
-    betInput.addEventListener('input', () => {
-        const value = parseFloat(betInput.value);
-        if (!isNaN(value) && value >= CONFIG.MIN_BET) {
-            state.bet = value;
+    if (betInput) {
+        betInput.addEventListener('change', (e) => {
+            state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
+            betInput.value = state.bet.toFixed(2);
             updateDisplay();
-        }
-    });
+        });
 
-    document.getElementById('minBet').addEventListener('click', () => {
-        state.bet = CONFIG.MIN_BET;
-        betInput.value = state.bet.toFixed(2);
-        updateDisplay();
-    });
+        betInput.addEventListener('input', () => {
+            const value = parseFloat(betInput.value);
+            if (!isNaN(value) && value >= CONFIG.MIN_BET) {
+                state.bet = value;
+                updateDisplay();
+            }
+        });
+    }
 
-    document.getElementById('maxBet').addEventListener('click', () => {
-        state.bet = Math.max(CONFIG.MIN_BET, state.balance);
-        betInput.value = state.bet.toFixed(2);
-        playSound(maxBetSound);
-        updateDisplay();
-    });
+    const minBetBtn = document.getElementById('minBet');
+    if (minBetBtn) {
+        minBetBtn.addEventListener('click', () => {
+            state.bet = CONFIG.MIN_BET;
+            if (betInput) betInput.value = state.bet.toFixed(2);
+            playSound(minBetSound);
+            updateDisplay();
+        });
+    }
 
-    // Bet presets
+    const maxBetBtn = document.getElementById('maxBet');
+    if (maxBetBtn) {
+        maxBetBtn.addEventListener('click', () => {
+            state.bet = Math.max(CONFIG.MIN_BET, state.balance);
+            if (betInput) betInput.value = state.bet.toFixed(2);
+            playSound(maxBetSound);
+            updateDisplay();
+        });
+    }
+
     const presetsEl = document.getElementById('betPresets');
     if (presetsEl) {
         CONFIG.PRESETS.forEach(amount => {
@@ -775,7 +1654,7 @@ function initHUD() {
             btn.addEventListener('click', () => {
                 if (amount <= state.balance) {
                     state.bet = amount;
-                    betInput.value = state.bet.toFixed(2);
+                    if (betInput) betInput.value = state.bet.toFixed(2);
                     updateDisplay();
                 }
             });
@@ -783,71 +1662,123 @@ function initHUD() {
         });
     }
 
-    // Game settings
-    document.getElementById('riskLevel').addEventListener('change', (e) => {
-        state.risk = e.target.value;
-        generateBoard();
-        updateDisplay();
-    });
-
-    document.getElementById('linesCount').addEventListener('input', (e) => {
-        state.lines = parseInt(e.target.value);
-        document.getElementById('lineValue').textContent = state.lines;
-        generateBoard();
-        updateDisplay();
-    });
-
-    document.getElementById('resetBalance').addEventListener('click', () => {
-        if (confirm('Reset balance and statistics?')) {
-            state.balance = CONFIG.INITIAL_BALANCE;
-            state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
-            state.winStreak = 0;
-            saveState();
+    const riskEl = document.getElementById('riskLevel');
+    if (riskEl) {
+        riskEl.addEventListener('change', (e) => {
+            state.risk = e.target.value;
+            generateBoard();
             updateDisplay();
-            updateStatsDisplay();
-        }
-    });
+        });
+    }
 
-    // Sound controls
-    bgMusic.volume = 0.5;
-    bgMusic.muted = state.isMusicMuted;
-    musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
-    sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
+    const linesEl = document.getElementById('linesCount');
+    if (linesEl) {
+        linesEl.addEventListener('input', (e) => {
+            state.lines = parseInt(e.target.value);
+            const lineValEl = document.getElementById('lineValue');
+            if (lineValEl) lineValEl.textContent = state.lines;
+            generateBoard();
+            updateDisplay();
+        });
+    }
 
-    musicToggle.addEventListener('click', () => {
-        state.isMusicMuted = !state.isMusicMuted;
+    const resetBtn = document.getElementById('resetBalance');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            if (await showConfirm('Reset balance and statistics?')) {
+                state.balance = CONFIG.INITIAL_BALANCE;
+                state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                state.winStreak = 0;
+                saveState();
+                updateDisplay();
+                updateStatsDisplay();
+                hideGameOver();
+            }
+        });
+    }
+
+    const zeroBtn = document.getElementById('zeroBalance');
+    if (zeroBtn) {
+        zeroBtn.addEventListener('click', async () => {
+            if (await showConfirm('Are you sure? Your balance will be ZERO and you will lose immediately! 😱')) {
+                state.balance = 0;
+                saveState();
+                updateDisplay();
+                showGameOver();
+            }
+        });
+    }
+
+    if (bgMusic) {
+        bgMusic.volume = 0.5;
         bgMusic.muted = state.isMusicMuted;
-        musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
-        saveState();
-    });
+    }
+    if (musicToggle) musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
+    if (sfxToggle) sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
 
-    sfxToggle.addEventListener('click', () => {
-        state.isSfxMuted = !state.isSfxMuted;
-        sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
-        saveState();
-    });
+    if (musicToggle) {
+        musicToggle.addEventListener('click', () => {
+            state.isMusicMuted = !state.isMusicMuted;
+            if (bgMusic) bgMusic.muted = state.isMusicMuted;
+            musicToggle.textContent = state.isMusicMuted ? '🔇' : '🎵';
+            saveState();
+        });
+    }
+
+    if (sfxToggle) {
+        sfxToggle.addEventListener('click', () => {
+            state.isSfxMuted = !state.isSfxMuted;
+            sfxToggle.textContent = state.isSfxMuted ? '🔇' : '🔊';
+            saveState();
+        });
+    }
 
     const startMusic = () => {
-        bgMusic.play().catch(() => {});
+        if (bgMusic) bgMusic.play().catch(() => { });
         document.removeEventListener('click', startMusic);
     };
     document.addEventListener('click', startMusic);
 
-    // Play
-    const handlePlay = () => {
+    const handlePlay = async () => {
         if (state.balance >= state.bet) {
             state.balance -= state.bet;
+
+            // Track biggest bet
+            if (state.bet > state.biggestBet) {
+                state.biggestBet = state.bet;
+            }
+
             saveState();
             updateDisplay();
             dropBall();
         } else {
-            alert('Insufficient balance!');
+            await showAlert('Oops! You are out of balance. Reset at the top to play again! 💸');
         }
     };
 
-    playBtn.addEventListener('click', handlePlay);
+    if (playBtn) playBtn.addEventListener('click', handlePlay);
 
-    // Auto-play
+    const tryAgainBtn = document.getElementById('tryAgainBtn');
+    const cancelGameOverBtn = document.getElementById('cancelGameOverBtn');
+    const tryAgainHoverSound = document.getElementById('tryAgainHoverSound');
+    const cancelHoverSound = document.getElementById('cancelHoverSound');
+
+    if (tryAgainBtn) {
+        tryAgainBtn.addEventListener('mouseenter', () => { playSound(tryAgainHoverSound); });
+        tryAgainBtn.addEventListener('click', () => {
+            hideGameOver();
+            const resetBtn = document.getElementById('resetBalance');
+            if (resetBtn) resetBtn.click();
+        });
+    }
+
+    if (cancelGameOverBtn) {
+        cancelGameOverBtn.addEventListener('mouseenter', () => { playSound(cancelHoverSound); });
+        cancelGameOverBtn.addEventListener('click', () => {
+            hideGameOver();
+        });
+    }
+
     const autoPlayBtn = document.getElementById('autoPlayBtn');
     const autoPlaySpeed = document.getElementById('autoPlaySpeed');
 
@@ -868,12 +1799,17 @@ function initHUD() {
 
     function startAutoPlay() {
         state.autoPlay = true;
-        autoPlayBtn.textContent = 'STOP AUTO';
-        autoPlayBtn.classList.add('active');
+        if (autoPlayBtn) {
+            autoPlayBtn.textContent = 'STOP AUTO';
+            autoPlayBtn.classList.add('active');
+        }
         const speed = CONFIG.AUTOPLAY_SPEEDS[state.autoPlaySpeed];
-        state.autoPlayInterval = setInterval(() => {
+        state.autoPlayInterval = setInterval(async () => {
             if (state.balance >= state.bet) handlePlay();
-            else { stopAutoPlay(); alert('Insufficient balance!'); }
+            else {
+                stopAutoPlay();
+                await showAlert('Auto Play stopped because you ran out of funds. Reset now! 💸');
+            }
         }, speed);
     }
 
@@ -883,38 +1819,177 @@ function initHUD() {
             clearInterval(state.autoPlayInterval);
             state.autoPlayInterval = null;
         }
-        autoPlayBtn.textContent = 'AUTO PLAY';
-        autoPlayBtn.classList.remove('active');
+        if (autoPlayBtn) {
+            autoPlayBtn.textContent = 'AUTO PLAY';
+            autoPlayBtn.classList.remove('active');
+        }
     }
 
-    // Receipt
-    document.getElementById('receiptBtn').addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.download = `RollyRoyal-Receipt-${Date.now()}.png`;
-        link.href = plinkoCanvas.toDataURL();
-        link.click();
-    });
+    const receiptBtn = document.getElementById('receiptBtn');
+    if (receiptBtn) {
+        receiptBtn.addEventListener('click', () => {
+            // Create an off-screen canvas for the receipt
+            const receiptCanvas = document.createElement('canvas');
+            const rCtx = receiptCanvas.getContext('2d');
+            receiptCanvas.width = 500;
+            receiptCanvas.height = 750;
 
-    // Keyboard shortcuts
+            // 1. Background (Paper Texture)
+            rCtx.fillStyle = '#ffffff';
+            rCtx.fillRect(0, 0, receiptCanvas.width, receiptCanvas.height);
+            
+            // Subtle paper pattern
+            rCtx.strokeStyle = '#f0f0f0';
+            rCtx.lineWidth = 1;
+            for(let i=0; i<receiptCanvas.height; i+=20) {
+                rCtx.beginPath();
+                rCtx.moveTo(0, i);
+                rCtx.lineTo(receiptCanvas.width, i);
+                rCtx.stroke();
+            }
+
+            // 2. Header
+            rCtx.fillStyle = '#000000';
+            rCtx.textAlign = 'center';
+            rCtx.font = 'bold 30px "Courier New", Courier, monospace';
+            rCtx.fillText('ROLLY ROYAL PLINKO', receiptCanvas.width / 2, 60);
+            
+            rCtx.font = '16px "Courier New", Courier, monospace';
+            rCtx.fillText('OFFICIAL DIGITAL RECEIPT', receiptCanvas.width / 2, 85);
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 105);
+            
+            const now = new Date();
+            rCtx.textAlign = 'left';
+            rCtx.font = '14px "Courier New", Courier, monospace';
+            rCtx.fillText(`DATE: ${now.toLocaleDateString()}`, 50, 135);
+            rCtx.fillText(`TIME: ${now.toLocaleTimeString()}`, 50, 155);
+            rCtx.fillText(`SESSION ID: #${Math.floor(Math.random() * 1000000)}`, 50, 175);
+            
+            rCtx.textAlign = 'center';
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 200);
+
+            // 3. Stats Section
+            rCtx.textAlign = 'left';
+            rCtx.font = 'bold 18px "Courier New", Courier, monospace';
+            rCtx.fillText('SESSION SUMMARY', 50, 230);
+            
+            rCtx.font = '16px "Courier New", Courier, monospace';
+            const { gamesPlayed, totalWagered, totalWon, biggestWin, biggestMultiplier } = state.stats;
+            const net = totalWon - totalWagered;
+
+            rCtx.fillText(`GAMES PLAYED:      ${gamesPlayed}`, 50, 260);
+            rCtx.fillText(`TOTAL WAGERED:     ₱${totalWagered.toFixed(2)}`, 50, 285);
+            rCtx.fillText(`TOTAL WON:         ₱${totalWon.toFixed(2)}`, 50, 310);
+            rCtx.fillText(`NET PROFIT:        ₱${net.toFixed(2)}`, 50, 335);
+            rCtx.fillText(`BIGGEST WIN:       ₱${biggestWin.toFixed(2)}`, 50, 360);
+            rCtx.fillText(`BEST MULTIPLIER:   ${biggestMultiplier}x`, 50, 385);
+
+            rCtx.textAlign = 'center';
+            rCtx.fillText('--------------------------', receiptCanvas.width / 2, 415);
+
+            // 4. Recent History "UI Snapshot"
+            const hX = 50;
+            const hY = 440;
+            const hW = 400;
+            const hH = 220;
+
+            // Draw Dark UI Container (Mimicking the .history-pane CSS)
+            rCtx.fillStyle = '#141928'; // var(--panel-bg)
+            rCtx.beginPath();
+            rCtx.roundRect(hX, hY, hW, hH, 12);
+            rCtx.fill();
+            
+            // Add a subtle border/glow
+            rCtx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+            rCtx.lineWidth = 1;
+            rCtx.stroke();
+
+            // Header for the "Snapshot"
+            rCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            rCtx.beginPath();
+            rCtx.roundRect(hX, hY, hW, 35, [12, 12, 0, 0]);
+            rCtx.fill();
+
+            rCtx.fillStyle = '#d4af37'; // --gold
+            rCtx.font = 'bold 14px sans-serif';
+            rCtx.textAlign = 'center';
+            rCtx.fillText('RECENT HISTORY', hX + hW / 2, hY + 23);
+
+            // History Entries
+            const displayHistory = state.history.slice(0, 7); // Show last 7 entries to fit the card
+            displayHistory.forEach((entry, i) => {
+                const entryY = hY + 65 + (i * 22);
+                
+                // Draw row divider
+                rCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                rCtx.beginPath();
+                rCtx.moveTo(hX + 15, entryY + 5);
+                rCtx.lineTo(hX + hW - 15, entryY + 5);
+                rCtx.stroke();
+
+                rCtx.font = '12px "Segoe UI", Arial, sans-serif';
+                
+                // Bet (Gray)
+                rCtx.textAlign = 'left';
+                rCtx.fillStyle = '#aaa';
+                rCtx.fillText(`₱${entry.bet.toFixed(2)}`, hX + 25, entryY);
+                
+                // Multiplier (Gold)
+                rCtx.textAlign = 'center';
+                rCtx.fillStyle = '#d4af37';
+                rCtx.font = 'bold 12px sans-serif';
+                rCtx.fillText(`${entry.multi}x`, hX + hW / 2, entryY);
+                
+                // Profit (Green/Red)
+                rCtx.textAlign = 'right';
+                rCtx.fillStyle = entry.multi >= 1 ? '#4caf50' : '#f44336';
+                rCtx.fillText(`₱${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
+            });
+
+            // 5. Footer
+            rCtx.fillStyle = '#000000';
+            rCtx.textAlign = 'center';
+            rCtx.font = 'bold 20px "Courier New", Courier, monospace';
+            rCtx.fillText('THANK YOU FOR PLAYING!', receiptCanvas.width / 2, 650);
+            
+            rCtx.font = '12px "Courier New", Courier, monospace';
+            rCtx.fillText('Rolly Royal Plinko (2D Arcade) | No Real Value', receiptCanvas.width / 2, 675);
+            
+            // Barcode-like lines
+            rCtx.fillStyle = '#000000';
+            for(let i=0; i<40; i++) {
+                const bw = Math.random() * 5 + 1;
+                rCtx.fillRect(110 + (i * 7), 690, bw, 30);
+            }
+
+            // Download the generated receipt
+            const link = document.createElement('a');
+            link.download = `RollyRoyal-Receipt-${Date.now()}.png`;
+            link.href = receiptCanvas.toDataURL('image/png');
+            link.click();
+        });
+    }
+
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
-        switch(e.key.toLowerCase()) {
+        switch (e.key.toLowerCase()) {
             case ' ':
             case 'enter':
                 e.preventDefault();
                 handlePlay();
                 break;
             case 'm':
-                musicToggle.click();
+                if (musicToggle) musicToggle.click();
                 break;
             case 's':
-                sfxToggle.click();
+                if (sfxToggle) sfxToggle.click();
                 break;
             case 'r':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    document.getElementById('resetBalance').click();
+                    const resetBtn = document.getElementById('resetBalance');
+                    if (resetBtn) resetBtn.click();
                 }
                 break;
             case '?':
@@ -924,7 +1999,6 @@ function initHUD() {
         }
     });
 
-    // Show keyboard hint
     const hint = document.getElementById('keyboardHint');
     if (hint && !Storage.get('hintShown', false)) {
         setTimeout(() => {
@@ -947,8 +2021,12 @@ window.onload = () => {
     resizeCanvases();
     setTimeout(resizeCanvases, 100);
     initPets();
+    checkDailyLogin(); // Check for daily rewards
     updateDisplay();
     updateStatsDisplay();
+    updateLevelDisplay();
+    updateCoinDisplay();
+    checkAchievements(); // Check for initial achievements
 
     let resizeTimeout;
     window.addEventListener('resize', () => {

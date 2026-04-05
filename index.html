@@ -30,13 +30,19 @@
                     <div class="hud-header">
                         <label>Balance</label>
                         <div class="hud-controls">
+                            <button id="shopBtn" class="icon-btn" title="Shop">🛒</button>
+                            <button id="achievementsBtn" class="icon-btn" title="Achievements">🏆</button>
+                            <button id="zeroBalance" class="icon-btn" title="Set Balance to 0">0️⃣</button>
                             <button id="tutorialBtn" class="icon-btn" title="How to Play">❓</button>
                             <button id="musicToggle" class="icon-btn" title="Toggle Music">🎵</button>
                             <button id="sfxToggle" class="icon-btn" title="Toggle SFX">🔊</button>
                         </div>
                     </div>
                     <div id="userBalance">₱1000.00</div>
+                    <div id="coinDisplay" class="coin-display">🪙 0 Coins</div>
                     <div id="streakDisplay" class="streak-display" style="display: none;"></div>
+                    <div id="activePowerupsDisplay" class="active-powerups" style="display: none;"></div>
+                    <div id="levelDisplay" class="level-display"></div>
                     <button id="resetBalance" class="secondary-btn">Reset Balance</button>
                 </div>
 
@@ -53,13 +59,28 @@
                     <source src="mp3/sound2.wav" type="audio/wav">
                 </audio>
                 <audio id="playBtnSound">
-                    <source src="mp3/faaah.mp3" type="audio/mpeg">
+                    <source src="mp3/fahhhhh.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="minBetSound">
+                    <source src="mp3/gay_UtmZQwk.mp3" type="audio/mpeg">
                 </audio>
                 <audio id="maxBetSound">
                     <source src="mp3/anita-max-win.mp3" type="audio/mpeg">
                 </audio>
                 <audio id="lossSound">
                     <source src="mp3/malupiton-aray-ko.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="catLaughSound">
+                    <source src="mp3/cat-laugh-meme-1.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="tucoSound">
+                    <source src="mp3/tuco-get-out.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="tryAgainHoverSound">
+                    <source src="mp3/another-one_dPvHt2Z.mp3" type="audio/mpeg">
+                </audio>
+                <audio id="cancelHoverSound">
+                    <source src="mp3/gay_UtmZQwk.mp3" type="audio/mpeg">
                 </audio>
 
                 <div class="hud-group">
@@ -95,7 +116,6 @@
                         <span id="petsToggleIcon" class="toggle-icon">▼</span>
                     </div>
                     <div class="pet-toggles collapsed" id="petToggles">
-                        <!-- Toggles for Alwyn, Asher, Beto, Colmo, Gab, Kyle, Renz -->
                     </div>
                 </div>
 
@@ -120,7 +140,7 @@
                 <div class="actions">
                     <button id="playBtn" class="primary-btn">PLAY</button>
                     <button id="autoPlayBtn" class="secondary-btn">AUTO PLAY</button>
-                    <button id="receiptBtn" class="secondary-btn">Save Receipt</button>
+                    <button id="receiptBtn" class="secondary-btn">SAVE RECIEPT</button>
                 </div>
             </aside>
         </div>
@@ -130,6 +150,18 @@
             <canvas id="petsCanvas"></canvas>
         </div>
     </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverOverlay" class="tutorial-overlay hidden"></div>
+    <div id="gameOverBox" class="tutorial-box game-over-box hidden">
+        <h2 class="game-over-title">YOU LOSE</h2>
+        <img src="Sprites/tenor.gif" alt="You Lose" class="game-over-gif">
+        <div class="game-over-actions">
+            <button id="tryAgainBtn" class="primary-btn">Try Again</button>
+            <button id="cancelGameOverBtn" class="secondary-btn">Cancel</button>
+        </div>
+    </div>
+
     <!-- Tutorial System -->
     <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
     <div id="tutorialBox" class="tutorial-box hidden">
@@ -144,6 +176,49 @@
             <div class="step-dots" id="stepDots"></div>
             <button id="nextStep" class="primary-btn tutorial-next">NEXT</button>
         </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shopOverlay" class="tutorial-overlay hidden"></div>
+    <div id="shopBox" class="tutorial-box shop-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">🛒 Shop</span>
+            <button id="closeShop" class="skip-link">Close</button>
+        </div>
+        <div class="shop-content">
+            <div class="shop-balance">
+                <span id="shopCoins">🪙 0 Coins</span>
+            </div>
+
+            <div class="shop-section">
+                <h3>⚡ Power-ups</h3>
+                <div id="powerupsShop" class="shop-grid"></div>
+            </div>
+
+            <div class="shop-section">
+                <h3>🐾 Pets (Coming Soon)</h3>
+                <div id="petsShop" class="shop-grid locked">
+                    <p style="text-align: center; opacity: 0.5;">More pets coming in future updates!</p>
+                </div>
+            </div>
+
+            <div class="shop-section">
+                <h3>🎨 Themes (Coming Soon)</h3>
+                <div id="themesShop" class="shop-grid locked">
+                    <p style="text-align: center; opacity: 0.5;">Custom themes coming soon!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievements Modal -->
+    <div id="achievementsOverlay" class="tutorial-overlay hidden"></div>
+    <div id="achievementsBox" class="tutorial-box achievements-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">🏆 Achievements</span>
+            <button id="closeAchievements" class="skip-link">Close</button>
+        </div>
+        <div class="achievements-content" id="achievementsContent"></div>
     </div>
 
     <div id="keyboardHint" class="keyboard-hint">
