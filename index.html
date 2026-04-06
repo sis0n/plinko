@@ -33,6 +33,7 @@
                         <div class="hud-header-actions">
                             <button id="shopBtn" class="icon-btn" title="Shop">🛒</button>
                             <button id="achievementsBtn" class="icon-btn" title="Achievements">🏆</button>
+                            <button id="luckySpinBtn" class="icon-btn" title="Daily Lucky Spin">🎰</button>
                             <div class="hud-menu">
                                 <button class="burger-btn" aria-label="Menu">&#9776;</button>
                                 <div class="hud-controls">
@@ -150,6 +151,22 @@
                     </select>
                 </div>
 
+                <div class="hud-group">
+                    <label>Bet Strategy</label>
+                    <select id="betStrategy">
+                        <option value="flat" selected>Flat</option>
+                        <option value="martingale">Martingale</option>
+                        <option value="anti_martingale">Anti-Martingale</option>
+                    </select>
+                </div>
+
+                <div class="hud-group jackpot-meter-group">
+                    <label>Jackpot Meter</label>
+                    <div id="jackpotMeter" class="jackpot-meter-bar">
+                        <div id="jackpotMeterFill" class="jackpot-fill"></div>
+                    </div>
+                </div>
+
                 <div class="actions">
                     <button id="playBtn" class="primary-btn">PLAY</button>
                     <button id="autoPlayBtn" class="secondary-btn">AUTO PLAY</button>
@@ -209,6 +226,11 @@
             </div>
 
             <div class="shop-section">
+                <h3>🎱 Ball Skins</h3>
+                <div id="skinsShop" class="shop-grid"></div>
+            </div>
+
+            <div class="shop-section">
                 <h3>🐾 Pets (Coming Soon)</h3>
                 <div id="petsShop" class="shop-grid locked">
                     <p style="text-align: center; opacity: 0.5;">Pet customization coming soon!</p>
@@ -230,6 +252,23 @@
             <button id="closeAchievements" class="skip-link">Close</button>
         </div>
         <div class="achievements-content" id="achievementsContent"></div>
+    </div>
+
+    <!-- Lucky Spin Modal -->
+    <div id="luckySpinOverlay" class="tutorial-overlay hidden"></div>
+    <div id="luckySpinBox" class="tutorial-box lucky-spin-box hidden">
+        <div class="tutorial-header">
+            <span class="tutorial-title">🎰 Daily Lucky Spin</span>
+            <button id="closeSpinBtn" class="skip-link">Skip</button>
+        </div>
+        <div class="spin-content">
+            <div class="spin-wheel-wrap">
+                <div class="spin-pointer">▼</div>
+                <canvas id="spinCanvas" width="300" height="300"></canvas>
+            </div>
+            <div id="spinResult" class="spin-result"></div>
+            <button id="spinBtn" class="primary-btn">SPIN!</button>
+        </div>
     </div>
 
     <div id="keyboardHint" class="keyboard-hint">

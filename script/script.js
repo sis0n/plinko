@@ -42,7 +42,11 @@ const CONFIG = {
     DAILY_REWARD: 150,
     XP_PER_GAME: 10,
     XP_PER_WIN: 25,
-    XP_PER_LEVEL: 1000
+    XP_PER_LEVEL: 1000,
+    PRESTIGE_LEVEL: 20,
+    JACKPOT_METER_MAX: 100,
+    SLOWMO_THRESHOLD: 25,
+    SLOWMO_FRAMES: 90
 };
 
 const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
@@ -59,6 +63,26 @@ const PET_CONFIGS = {
 // ============================================================================
 // GAMIFICATION DATA
 // ============================================================================
+const BALL_SKINS = [
+    { id: 'default',     name: '⚪ Default',     description: 'Bet-based color',              cost: 0    },
+    { id: 'flame',       name: '🔥 Flame',       description: 'Orange fire glow + hot trail', cost: 800  },
+    { id: 'rainbow',     name: '🌈 Rainbow',     description: 'Hue cycles every frame',       cost: 1200 },
+    { id: 'ghost',       name: '👻 Ghost',       description: 'Translucent white phantom',    cost: 600  },
+    { id: 'ice',         name: '❄️ Ice',         description: 'Frozen cyan crystal',          cost: 700  },
+    { id: 'dark_matter', name: '⚫ Dark Matter', description: 'Black hole with purple aura',  cost: 1500 },
+];
+
+const SPIN_PRIZES = [
+    { label: '75 ⭐',     type: 'stars',   value: 75,            color: '#374151' },
+    { label: '150 ⭐',    type: 'stars',   value: 150,           color: '#1e3a5f' },
+    { label: '300 ⭐',    type: 'stars',   value: 300,           color: '#7c2d12' },
+    { label: '🍀 Charm',  type: 'powerup', value: 'lucky_charm', color: '#14532d' },
+    { label: '500 ⭐',    type: 'stars',   value: 500,           color: '#4c1d95' },
+    { label: '1000 ⭐',   type: 'stars',   value: 1000,          color: '#7f1d1d' },
+    { label: '🛡️ Shield', type: 'powerup', value: 'shield',      color: '#1e3a5f' },
+    { label: '2500 ⭐',   type: 'stars',   value: 2500,          color: '#713f12' },
+];
+
 const SHOP_ITEMS = {
     powerups: [
         { id: 'lucky_charm', name: '🍀 Lucky Charm', description: '+10% to all multipliers (10 plays)', cost: 250, duration: 10 },
@@ -281,7 +305,15 @@ let state = {
     jackpotHit: Storage.get('jackpotHit', false),
     comebackAchieved: Storage.get('comebackAchieved', false),
     ownedPets: Storage.get('ownedPets', []),
-    currentTheme: Storage.get('currentTheme', 'default')
+    currentTheme: Storage.get('currentTheme', 'default'),
+    lastSpin: Storage.get('lastSpin', null),
+    prestige: Storage.get('prestige', 0),
+    jackpotMeter: Storage.get('jackpotMeter', 0),
+    activeSkin: Storage.get('activeSkin', 'default'),
+    betStrategy: 'flat',
+    baseBet: 10,
+    slowMo: 0,
+    balanceHistory: []
 };
 
 function saveState() {
@@ -301,6 +333,10 @@ function saveState() {
     Storage.set('comebackAchieved', state.comebackAchieved);
     Storage.set('ownedPets', state.ownedPets);
     Storage.set('currentTheme', state.currentTheme);
+    Storage.set('lastSpin', state.lastSpin);
+    Storage.set('prestige', state.prestige);
+    Storage.set('jackpotMeter', state.jackpotMeter);
+    Storage.set('activeSkin', state.activeSkin);
 }
 
 // ============================================================================
@@ -313,6 +349,7 @@ let pets = [];
 let winEffects = [];
 let confetti = [];
 let fireParticles = [];
+let pegRipples = [];
 let slotHeat = [];
 let slotPulses = [];
 let cachedBgGradient = null;
@@ -1152,10 +1189,11 @@ function checkDailyLogin() {
     const today = new Date().toDateString();
     if (state.lastLogin !== today) {
         state.lastLogin = today;
-        state.stars += CONFIG.DAILY_REWARD;
         state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
-        showAlert(`Daily Reward! 🎁<br>+${CONFIG.DAILY_REWARD} ⭐ Stars`);
         saveState();
+    }
+    if (state.lastSpin !== today) {
+        openLuckySpin();
     }
 }
 
@@ -1272,6 +1310,10 @@ function handleStreakLoss() {
 }
 
 function updatePhysics() {
+    const gravMult  = state.slowMo > 0 ? 0.25 : 1;
+    const fricMult  = state.slowMo > 0 ? 0.992 : CONFIG.FRICTION;
+    if (state.slowMo > 0) state.slowMo--;
+
     for (let i = balls.length - 1; i >= 0; i--) {
         const ball = balls[i];
 
@@ -1292,8 +1334,8 @@ function updatePhysics() {
             });
         }
 
-        ball.vy += CONFIG.GRAVITY;
-        ball.vx *= CONFIG.FRICTION;
+        ball.vy += CONFIG.GRAVITY * gravMult;
+        ball.vx *= fricMult;
         ball.x += ball.vx;
         ball.y += ball.vy;
 
@@ -1303,6 +1345,7 @@ function updatePhysics() {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < ball.radius + peg.radius) {
                 playSound(pegSound);
+                pegRipples.push({ x: peg.x, y: peg.y, r: peg.radius + 1, life: 1 });
                 const nx = dx / dist;
                 const ny = dy / dist;
                 const dot = ball.vx * nx + ball.vy * ny;
@@ -1442,7 +1485,40 @@ function handleWin(multiplier, slotIdx, slot, bet) {
     actualMulti = boosted.multiplier;
     winAmount = boosted.winAmount;
 
+    // Apply prestige bonus
+    if (state.prestige > 0) winAmount *= (1 + state.prestige * 0.05);
+
     state.stars += winAmount;
+
+    // Slow-mo on big wins
+    if (actualMulti >= CONFIG.SLOWMO_THRESHOLD) state.slowMo = CONFIG.SLOWMO_FRAMES;
+
+    // Jackpot meter
+    if (multiplier < 1) {
+        state.jackpotMeter = Math.min(CONFIG.JACKPOT_METER_MAX, state.jackpotMeter + 8);
+    } else if (multiplier <= 2) {
+        state.jackpotMeter = Math.min(CONFIG.JACKPOT_METER_MAX, state.jackpotMeter + 2);
+    } else {
+        state.jackpotMeter = Math.max(0, state.jackpotMeter - 5);
+    }
+    if (state.jackpotMeter >= CONFIG.JACKPOT_METER_MAX) {
+        state.jackpotMeter = 0;
+        state.activePowerups.push({ id: 'jackpot_boost', name: '💎 Jackpot Boost', remaining: 3 });
+        showToast('🎰 <strong>Jackpot Meter FULL!</strong><br><span>💎 Jackpot Boost activated for 3 plays!</span>');
+        updatePowerupDisplay();
+    }
+    updateJackpotMeter();
+
+    // Bet strategy adjustment
+    if (state.betStrategy === 'martingale') {
+        state.bet = multiplier < 1
+            ? Math.min(state.stars, state.bet * 2)
+            : state.baseBet;
+    } else if (state.betStrategy === 'anti_martingale') {
+        state.bet = multiplier >= 2
+            ? Math.min(state.stars, state.bet * 2)
+            : state.baseBet;
+    }
 
     if (!slotHeat[slotIdx]) slotHeat[slotIdx] = 0;
     slotHeat[slotIdx] = Math.min(slotHeat[slotIdx] + 1, 5);
@@ -1455,6 +1531,10 @@ function handleWin(multiplier, slotIdx, slot, bet) {
     state.stats.totalWon += winAmount;
     if (winAmount > state.stats.biggestWin) state.stats.biggestWin = winAmount;
     if (actualMulti > state.stats.biggestMultiplier) state.stats.biggestMultiplier = actualMulti;
+
+    // Track balance history for sparkline
+    state.balanceHistory.push(state.stars);
+    if (state.balanceHistory.length > 20) state.balanceHistory.shift();
 
     // Check achievements
     checkAchievements();
@@ -1614,20 +1694,38 @@ function createLevelUpBurst() {
     }
 }
 
+function updateJackpotMeter() {
+    const el = document.getElementById('jackpotMeter');
+    const fill = document.getElementById('jackpotMeterFill');
+    if (!el || !fill) return;
+    const pct = (state.jackpotMeter / CONFIG.JACKPOT_METER_MAX) * 100;
+    fill.style.width = `${pct}%`;
+    el.title = `Jackpot Meter: ${Math.floor(pct)}%`;
+    fill.className = 'jackpot-fill' + (pct >= 100 ? ' jackpot-full' : pct >= 70 ? ' jackpot-hot' : '');
+}
+
 function updateLevelDisplay() {
     const levelEl = document.getElementById('levelDisplay');
-    if (levelEl) {
-        const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
-        const progress = Math.floor((state.xp / xpNeeded) * 100);
-        levelEl.innerHTML = `
-            <div class="level-badge">
-                <span class="level-number">Lv.${state.level}</span>
-            </div>
-            <div class="xp-bar-container">
-                <div class="xp-bar" style="width: ${progress}%"></div>
-                <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
-            </div>
-        `;
+    if (!levelEl) return;
+    const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+    const progress = Math.floor((state.xp / xpNeeded) * 100);
+    const prestigeBadge = state.prestige > 0 ? `<span class="prestige-badge">⚡${state.prestige}</span>` : '';
+    const prestigeBtn = state.level >= CONFIG.PRESTIGE_LEVEL
+        ? `<button id="prestigeBtn" class="prestige-btn">✨ PRESTIGE</button>`
+        : '';
+    levelEl.innerHTML = `
+        <div class="level-badge">
+            ${prestigeBadge}<span class="level-number">Lv.${state.level}</span>
+        </div>
+        <div class="xp-bar-container">
+            <div class="xp-bar" style="width: ${progress}%"></div>
+            <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
+        </div>
+        ${prestigeBtn}
+    `;
+    if (state.level >= CONFIG.PRESTIGE_LEVEL) {
+        const btn = document.getElementById('prestigeBtn');
+        if (btn) btn.addEventListener('click', doPrestige);
     }
 }
 
@@ -1645,6 +1743,19 @@ function updatePowerupDisplay() {
     }
 }
 
+async function doPrestige() {
+    if (state.level < CONFIG.PRESTIGE_LEVEL) return;
+    const bonus = (state.prestige + 1) * 5;
+    if (!await showConfirm(`Prestige! Reset to Lv.1 and gain a permanent +${bonus}% multiplier bonus?`)) return;
+    state.prestige++;
+    state.level = 1;
+    state.xp = 0;
+    showToast(`⚡ <strong>Prestige ${state.prestige}!</strong><br><span>+${state.prestige * 5}% permanent multiplier bonus</span>`);
+    saveState();
+    updateLevelDisplay();
+    updateDisplay();
+}
+
 function updateStatsDisplay() {
     const statsEl = document.getElementById('statsDisplay');
     if (!statsEl) return;
@@ -1652,6 +1763,7 @@ function updateStatsDisplay() {
     const { gamesPlayed, totalWagered, totalWon, biggestWin, biggestMultiplier, longestStreak } = state.stats;
     const netProfit = totalWon - totalWagered;
     const winRate = gamesPlayed > 0 ? ((totalWon / totalWagered) * 100).toFixed(1) : '0.0';
+    const prestigeLine = state.prestige > 0 ? `<div class="stat-row"><span>Prestige:</span><span class="gold">⚡${state.prestige} (+${state.prestige * 5}%)</span></div>` : '';
 
     statsEl.innerHTML = `
         <div class="stat-row"><span>Games:</span><span>${gamesPlayed}</span></div>
@@ -1660,7 +1772,38 @@ function updateStatsDisplay() {
         <div class="stat-row"><span>Best Multi:</span><span class="gold">${biggestMultiplier}x</span></div>
         <div class="stat-row"><span>Longest Streak:</span><span class="gold">🔥${longestStreak}</span></div>
         <div class="stat-row"><span>ROI:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">${winRate}%</span></div>
+        ${prestigeLine}
+        <canvas id="sparkline" class="sparkline" width="200" height="40"></canvas>
     `;
+    drawSparkline();
+}
+
+function drawSparkline() {
+    const canvas = document.getElementById('sparkline');
+    if (!canvas || state.balanceHistory.length < 2) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const vals = state.balanceHistory;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const toX = i => (i / (vals.length - 1)) * w;
+    const toY = v => h - ((v - min) / range) * (h - 4) - 2;
+
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(vals[0]));
+    for (let i = 1; i < vals.length; i++) ctx.lineTo(toX(i), toY(vals[i]));
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Fill under line
+    ctx.lineTo(toX(vals.length - 1), h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(212,175,55,0.12)';
+    ctx.fill();
 }
 
 function addHistoryEntry(bet, multi) {
@@ -2044,6 +2187,21 @@ function draw() {
         plinkoCtx.restore();
     });
 
+    // Peg ripples
+    for (let i = pegRipples.length - 1; i >= 0; i--) {
+        const rp = pegRipples[i];
+        rp.r += 2.2;
+        rp.life -= 0.07;
+        if (rp.life <= 0) { pegRipples.splice(i, 1); continue; }
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+        plinkoCtx.strokeStyle = ts.pegGlowColor || '#ffffff';
+        plinkoCtx.globalAlpha = rp.life * 0.55;
+        plinkoCtx.lineWidth = 1.5;
+        plinkoCtx.stroke();
+        plinkoCtx.globalAlpha = 1;
+    }
+
     // Fire particles (drawn behind balls)
     fireParticles.forEach(p => {
         plinkoCtx.save();
@@ -2084,20 +2242,42 @@ function draw() {
             plinkoCtx.shadowColor = palette.glow;
         }
 
-        if (state.currentTheme === 'gold_rush' && state.winStreak < 5) {
+        if (state.currentTheme === 'gold_rush' && state.winStreak < 5 && state.activeSkin === 'default') {
             const coinSize = ball.radius * 2.2;
             plinkoCtx.font = `${coinSize}px serif`;
             plinkoCtx.textAlign = 'center';
             plinkoCtx.textBaseline = 'middle';
             plinkoCtx.fillText('🪙', ball.x, ball.y);
         } else {
-            plinkoCtx.fillStyle = (state.winStreak < 5 && ts.ballColor) ? ts.ballColor : ball.color;
+            const skin = state.activeSkin;
+            const t = Date.now();
+            let ballColor = (state.winStreak < 5 && ts.ballColor) ? ts.ballColor : ball.color;
+
+            if (skin === 'flame') {
+                ballColor = '#ff4400';
+                plinkoCtx.shadowBlur = 18; plinkoCtx.shadowColor = '#ff8800';
+            } else if (skin === 'rainbow') {
+                ballColor = `hsl(${(t * 0.2 + ball.x) % 360},100%,60%)`;
+            } else if (skin === 'ghost') {
+                plinkoCtx.globalAlpha = 0.5;
+                ballColor = '#e0e8ff';
+                plinkoCtx.shadowBlur = 12; plinkoCtx.shadowColor = '#aabbff';
+            } else if (skin === 'ice') {
+                ballColor = '#a8eeff';
+                plinkoCtx.shadowBlur = 14; plinkoCtx.shadowColor = '#00ddff';
+            } else if (skin === 'dark_matter') {
+                ballColor = '#0d0010';
+                plinkoCtx.shadowBlur = 22; plinkoCtx.shadowColor = '#9000ff';
+            }
+
+            plinkoCtx.fillStyle = ballColor;
             plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
             plinkoCtx.lineWidth = 1;
             plinkoCtx.beginPath();
             plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             plinkoCtx.fill();
             plinkoCtx.stroke();
+            plinkoCtx.globalAlpha = 1;
         }
 
         plinkoCtx.shadowBlur = 0;
@@ -2137,6 +2317,157 @@ function draw() {
 // ============================================================================
 // INIT
 // ============================================================================
+// LUCKY SPIN
+// ============================================================================
+let _spinRotation = 0;
+let _spinAnimId = null;
+
+function drawSpinWheel(rotation) {
+    const canvas = document.getElementById('spinCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const r = cx - 8;
+    const segAngle = (Math.PI * 2) / SPIN_PRIZES.length;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    SPIN_PRIZES.forEach((prize, i) => {
+        const startAngle = rotation + i * segAngle - Math.PI / 2;
+        const endAngle = startAngle + segAngle;
+
+        // Segment fill
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = prize.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Label
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(startAngle + segAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${prize.label.length > 6 ? 11 : 13}px sans-serif`;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.fillText(prize.label, r - 10, 5);
+        ctx.restore();
+    });
+
+    // Gold rim
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffd700';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Center cap
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function openLuckySpin() {
+    const overlay = document.getElementById('luckySpinOverlay');
+    const box = document.getElementById('luckySpinBox');
+    const spinBtn = document.getElementById('spinBtn');
+    const resultEl = document.getElementById('spinResult');
+
+    if (!overlay || !box) return;
+
+    _spinRotation = 0;
+    if (resultEl) { resultEl.textContent = ''; resultEl.classList.remove('pop'); }
+    if (spinBtn) { spinBtn.disabled = false; spinBtn.textContent = 'SPIN!'; }
+
+    drawSpinWheel(0);
+    overlay.classList.remove('hidden');
+    box.classList.remove('hidden');
+}
+
+function closeLuckySpin() {
+    const overlay = document.getElementById('luckySpinOverlay');
+    const box = document.getElementById('luckySpinBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+    if (_spinAnimId) { cancelAnimationFrame(_spinAnimId); _spinAnimId = null; }
+}
+
+function doSpin() {
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = 'Spinning...'; }
+
+    // Start fast, decelerate naturally. Winner is read from final position.
+    let speed = 0.32 + Math.random() * 0.08;
+    const decel = 0.975;
+
+    function animate() {
+        _spinRotation += speed;
+        speed *= decel;
+        drawSpinWheel(_spinRotation);
+
+        if (speed > 0.003) {
+            _spinAnimId = requestAnimationFrame(animate);
+        } else {
+            // Derive winner from where the wheel stopped.
+            // Segment i is centered at (i + 0.5) * segAngle in wheel frame.
+            // Pointer at top maps to wheel angle = (-_spinRotation mod 2π).
+            const segAngle = (Math.PI * 2) / SPIN_PRIZES.length;
+            const normalizedAngle = ((-_spinRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const winnerIdx = Math.floor(normalizedAngle / segAngle) % SPIN_PRIZES.length;
+            drawSpinWheel(_spinRotation);
+            revealSpinPrize(winnerIdx);
+        }
+    }
+    _spinAnimId = requestAnimationFrame(animate);
+}
+
+function revealSpinPrize(idx) {
+    const prize = SPIN_PRIZES[idx];
+    const resultEl = document.getElementById('spinResult');
+
+    if (prize.type === 'stars') {
+        state.stars += prize.value;
+        if (resultEl) resultEl.textContent = `You won ${prize.label}!`;
+        showToast(`🎰 Lucky Spin! You won <strong>${prize.label}</strong>`);
+    } else if (prize.type === 'powerup') {
+        const powerupDef = SHOP_ITEMS.powerups.find(p => p.id === prize.value);
+        if (powerupDef) {
+            state.activePowerups.push({ id: powerupDef.id, name: powerupDef.name, remaining: powerupDef.duration });
+        }
+        if (resultEl) resultEl.textContent = `You got ${prize.label}!`;
+        showToast(`🎰 Lucky Spin! You got <strong>${prize.label}</strong> activated!`);
+    }
+
+    state.lastSpin = new Date().toDateString();
+    saveState();
+    updateDisplay();
+    updatePowerupDisplay();
+
+    if (resultEl) {
+        resultEl.classList.remove('pop');
+        void resultEl.offsetWidth;
+        resultEl.classList.add('pop');
+    }
+
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) { spinBtn.textContent = 'Claim & Close'; spinBtn.disabled = false; spinBtn.onclick = closeLuckySpin; }
+}
+
+// ============================================================================
 // SHOP & ACHIEVEMENTS UI
 // ============================================================================
 function openShop() {
@@ -2145,6 +2476,48 @@ function openShop() {
     const shopStars = document.getElementById('shopStars');
 
     if (shopStars) shopStars.textContent = `⭐ ${state.stars.toFixed(2)}`;
+
+    // Render ball skins
+    const skinsEl = document.getElementById('skinsShop');
+    if (skinsEl) {
+        skinsEl.innerHTML = BALL_SKINS.map(skin => {
+            const owned = skin.cost === 0 || state.unlockedItems.includes(skin.id);
+            const active = state.activeSkin === skin.id;
+            return `
+                <div class="shop-item ${active ? 'theme-active' : ''}">
+                    <div class="shop-item-header">
+                        <span class="shop-item-name">${skin.name}</span>
+                        <span class="shop-item-cost">${owned ? (active ? '● Active' : '✓ Owned') : `⭐ ${skin.cost}`}</span>
+                    </div>
+                    <p class="shop-item-desc">${skin.description}</p>
+                    ${owned
+                        ? `<button class="buy-btn" data-skin="${skin.id}" ${active ? 'disabled' : ''}>${active ? 'Applied' : 'Apply'}</button>`
+                        : `<button class="buy-btn" data-buy-skin="${skin.id}" ${state.stars < skin.cost ? 'disabled' : ''}>${state.stars < skin.cost ? 'Not Enough Stars' : 'Buy'}</button>`
+                    }
+                </div>`;
+        }).join('');
+
+        skinsEl.querySelectorAll('[data-buy-skin]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const skin = BALL_SKINS.find(s => s.id === btn.dataset.buySkin);
+                if (!skin || state.stars < skin.cost) return;
+                state.stars -= skin.cost;
+                state.unlockedItems.push(skin.id);
+                state.activeSkin = skin.id;
+                saveState();
+                btn.classList.add('purchased-flash');
+                setTimeout(() => { btn.classList.remove('purchased-flash'); openShop(); }, 400);
+            });
+        });
+
+        skinsEl.querySelectorAll('[data-skin]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.activeSkin = btn.dataset.skin;
+                saveState();
+                openShop();
+            });
+        });
+    }
 
     // Render powerups
     const powerupsEl = document.getElementById('powerupsShop');
@@ -2292,6 +2665,24 @@ function initHUD() {
     const closeShopBtn = document.getElementById('closeShop');
     if (closeShopBtn) closeShopBtn.addEventListener('click', closeShop);
 
+    const closeSpinBtn = document.getElementById('closeSpinBtn');
+    if (closeSpinBtn) closeSpinBtn.addEventListener('click', closeLuckySpin);
+
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) spinBtn.addEventListener('click', doSpin);
+
+    const luckySpinBtn = document.getElementById('luckySpinBtn');
+    if (luckySpinBtn) {
+        luckySpinBtn.addEventListener('click', () => {
+            const today = new Date().toDateString();
+            if (state.lastSpin === today) {
+                showToast('🎰 Already spun today! Come back tomorrow.');
+            } else {
+                openLuckySpin();
+            }
+        });
+    }
+
     const achievementsBtn = document.getElementById('achievementsBtn');
     if (achievementsBtn) achievementsBtn.addEventListener('click', openAchievements);
 
@@ -2329,6 +2720,7 @@ function initHUD() {
     if (betInput) {
         betInput.addEventListener('change', (e) => {
             state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
+            state.baseBet = state.bet;
             betInput.value = state.bet.toFixed(2);
             updateDisplay();
         });
@@ -2390,6 +2782,14 @@ function initHUD() {
             state.risk = e.target.value;
             generateBoard();
             updateDisplay();
+        });
+    }
+
+    const betStrategyEl = document.getElementById('betStrategy');
+    if (betStrategyEl) {
+        betStrategyEl.addEventListener('change', (e) => {
+            state.betStrategy = e.target.value;
+            state.baseBet = state.bet;
         });
     }
 
@@ -2770,9 +3170,11 @@ window.onload = () => {
     setTimeout(resizeCanvases, 100);
     initPets();
     checkDailyLogin(); // Check for daily rewards
+    state.baseBet = state.bet;
     updateDisplay();
     updateStatsDisplay();
     updateLevelDisplay();
+    updateJackpotMeter();
     checkAchievements(); // Check for initial achievements
 
     let resizeTimeout;
