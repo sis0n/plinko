@@ -23,7 +23,7 @@
 // ============================================================================
 const CONFIG = {
     MIN_BET: 1.00,
-    INITIAL_STARS: 1000,
+    INITIAL_STARS: 100,
     MAX_HISTORY: 20,
     GRAVITY: 0.2,
     FRICTION: 0.99,
@@ -73,15 +73,38 @@ const BALL_SKINS = [
 ];
 
 const SPIN_PRIZES = [
-    { label: '75 ⭐',     type: 'stars',   value: 75,            color: '#374151' },
-    { label: '150 ⭐',    type: 'stars',   value: 150,           color: '#1e3a5f' },
-    { label: '300 ⭐',    type: 'stars',   value: 300,           color: '#7c2d12' },
+    { label: '5 ⭐',      type: 'stars',   value: 5,             color: '#374151' },
+    { label: '10 ⭐',     type: 'stars',   value: 10,            color: '#1e3a5f' },
+    { label: '20 ⭐',     type: 'stars',   value: 20,            color: '#7c2d12' },
     { label: '🍀 Charm',  type: 'powerup', value: 'lucky_charm', color: '#14532d' },
-    { label: '500 ⭐',    type: 'stars',   value: 500,           color: '#4c1d95' },
-    { label: '1000 ⭐',   type: 'stars',   value: 1000,          color: '#7f1d1d' },
+    { label: '35 ⭐',     type: 'stars',   value: 35,            color: '#4c1d95' },
+    { label: '50 ⭐',     type: 'stars',   value: 50,            color: '#7f1d1d' },
     { label: '🛡️ Shield', type: 'powerup', value: 'shield',      color: '#1e3a5f' },
-    { label: '2500 ⭐',   type: 'stars',   value: 2500,          color: '#713f12' },
+    { label: '100 ⭐',    type: 'stars',   value: 100,           color: '#713f12' },
 ];
+
+const PET_DIALOGUES = {
+    greet: [
+        ['Hey!',        'Sup!'],
+        ['Yo!',         'Wassup'],
+        ['Hiii~',       'Hello!!'],
+        ['Oi!',         'Bro!!'],
+        ['Howdy',       'Hey hey'],
+        ['Miss me?',    'Not really'],
+        ['Long time!',  'Yeah...'],
+        ['Looking good','You too!'],
+        ['Wanna bet?',  'Always.'],
+        ['Nice win!',   'Thanks!!'],
+        ['Let\'s go!',  'Let\'s GO!'],
+        ['Poggers',     'Based'],
+    ],
+    chase:  ['Wait up!', 'Catch me!', 'Hey!!', 'Come here!', 'Got ya!'],
+    chased: ['Ahh!!', 'Noooo!', 'Run!!', 'Oh no!'],
+    jackpot:['WOOO!!', 'LET\'S GO!', 'YESSS!', 'JACKPOT!!', 'NO WAY!!', 'SLAY!!!', '🎉🎉🎉', 'LESGOOO'],
+    win:    ['Nice!', 'Profit!', 'GG!', 'EZ money', 'Yooo!', 'Cha-ching!'],
+    sad:    ['Oof...', 'Bruh.', 'Rip.', 'L + ratio', 'Not again', 'Unlucky', '*cries*', 'Pain.'],
+    idle:   ['...', 'hmm', '*yawn*', 'la la la', 'boring...', '*stretches*', 'ok.', 'heh', '*hums*', 'anyone?'],
+};
 
 const SHOP_ITEMS = {
     powerups: [
@@ -555,45 +578,190 @@ class Pet {
         this.image.src = `Sprites/LABOBO/${fileName}.png`;
         this.size = CONFIG.PET_SIZE * 1.5;
         this.x = Math.random() * (petsCanvas.width - this.size);
-        this.y = petsCanvas.height - this.size - 30; // Adjusted for 2.5D stage
+        this.y = petsCanvas.height - this.size - 30;
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
         this.state = 'happy';
         this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
+        // Liveliness additions
+        this.bobPhase = Math.random() * Math.PI * 2;
+        this.hopTimer = 0;
+        this.hopPhase = 0;
+        this.personalityTimer = Math.floor(Math.random() * 180);
+        this.baseSpeed = 0.7 + Math.random() * 1.6;
+        this.squashY = 1;
+        this.tilt = 0;
+        // Interaction additions
+        this.greetTimer = 0;
+        this.greetCooldown = Math.floor(Math.random() * 80);
+        this.chaseTarget = null;
+        this.chaseTimer = 0;
+        // Speech bubble
+        this.bubble = null;        // { text, opacity, timer }
+        this.pendingBubble = null; // { text, countdown, duration }
     }
 
-    update() {
+    update(otherPets = []) {
         const maxFrames = 5;
         const now = Date.now();
-        // Pinabagal ang frames kapag jumping (mula 100 naging 200ms)
         const fps = this.state === 'jackpot' ? 200 : 150;
-
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
             this.lastFrameUpdate = now;
         }
 
+        this.tickBubble();
+        this.bobPhase += 0.07;
         let jumpOffset = 0;
 
         if (this.state === 'jackpot') {
             this.timer--;
-            // Smooth Sine Wave Bounce pataas
             jumpOffset = -Math.abs(Math.sin(this.timer * 0.15)) * 25;
-
             if (this.timer <= 0) {
                 this.state = 'happy';
-                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vx = (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed;
             }
+
+        } else if (this.state === 'greeting') {
+            this.greetTimer--;
+            // Excited faster bob + head wobble while chatting
+            jumpOffset = Math.sin(this.bobPhase * 2.2) * 4;
+            this.tilt = Math.sin(this.bobPhase * 2.2) * 0.045;
+            if (this.greetTimer <= 0) {
+                this.state = 'happy';
+                this.vx = -this.direction * this.baseSpeed; // walk away
+                this.greetCooldown = 220 + Math.floor(Math.random() * 120);
+                this.tilt = 0;
+            }
+
+        } else if (this.state === 'chasing') {
+            this.chaseTimer--;
+            const target = this.chaseTarget;
+            if (target && state.activePets.has(target.name)) {
+                const dx = target.x - this.x;
+                if (Math.abs(dx) < this.size * 0.85) {
+                    // Caught — trigger greeting on both
+                    const greetDur = 90 + Math.floor(Math.random() * 60);
+                    const pair = PET_DIALOGUES.greet[Math.floor(Math.random() * PET_DIALOGUES.greet.length)];
+                    this.state = 'greeting';
+                    this.greetTimer = greetDur;
+                    this.greetCooldown = 220;
+                    this.direction = dx >= 0 ? 1 : -1;
+                    this.vx = 0;
+                    this.scheduleBubble(pair[0], 6, 72);
+                    if (target.state === 'happy' || target.state === 'sad' || target.state === 'chasing') {
+                        target.state = 'greeting';
+                        target.greetTimer = greetDur;
+                        target.greetCooldown = 220;
+                        target.direction = -this.direction;
+                        target.vx = 0;
+                        target.scheduleBubble(pair[1], 52, 72);
+                    }
+                } else {
+                    this.vx = (dx > 0 ? 1 : -1) * this.baseSpeed * 2.2;
+                    this.direction = dx > 0 ? 1 : -1;
+                    this.x += this.vx;
+                    if (this.x < 0) { this.x = 0; }
+                    else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; }
+                }
+            } else {
+                this.state = 'happy';
+                this.chaseTarget = null;
+            }
+            if (this.chaseTimer <= 0) {
+                this.state = 'happy';
+                this.chaseTarget = null;
+                this.vx = (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed;
+            }
+            jumpOffset = Math.sin(this.bobPhase) * 1.5;
+            this.tilt = this.vx * 0.03;
+
         } else {
+            // happy / sad — normal walk with personality
+            if (this.greetCooldown > 0) this.greetCooldown--;
+
+            this.personalityTimer--;
+            if (this.personalityTimer <= 0) {
+                this.personalityTimer = 90 + Math.floor(Math.random() * 240);
+                const roll = Math.random();
+                if (roll < 0.2) {
+                    if (this.hopTimer <= 0) { this.hopTimer = 30; this.hopPhase = 0; }
+                } else if (roll < 0.38) {
+                    this.vx = (this.vx >= 0 ? 1 : -1) * (this.baseSpeed * (1.5 + Math.random()));
+                } else if (roll < 0.52) {
+                    this.vx = 0;
+                    this.personalityTimer = 30 + Math.floor(Math.random() * 40);
+                } else if (roll < 0.62 && otherPets.length > 0 && this.greetCooldown <= 0) {
+                    // Chase a random other pet
+                    const candidates = otherPets.filter(p => p.state === 'happy' || p.state === 'sad');
+                    if (candidates.length > 0) {
+                        this.state = 'chasing';
+                        this.chaseTarget = candidates[Math.floor(Math.random() * candidates.length)];
+                        this.chaseTimer = 220;
+                        const cl = PET_DIALOGUES.chase;
+                        this.scheduleBubble(cl[Math.floor(Math.random() * cl.length)], 4, 55);
+                        const tl = PET_DIALOGUES.chased;
+                        this.chaseTarget.scheduleBubble(tl[Math.floor(Math.random() * tl.length)], 18, 55);
+                    }
+                } else if (roll < 0.72 && !this.bubble && !this.pendingBubble) {
+                    // Idle mumble
+                    const il = PET_DIALOGUES.idle;
+                    this.scheduleBubble(il[Math.floor(Math.random() * il.length)], 0, 70);
+                } else {
+                    this.vx = this.vx === 0
+                        ? (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed
+                        : (this.vx > 0 ? 1 : -1) * this.baseSpeed;
+                }
+            }
+
+            // Proximity greeting — only this pet triggers, sets both
+            if (this.greetCooldown <= 0) {
+                for (const other of otherPets) {
+                    if ((other.state === 'happy' || other.state === 'sad') && other.greetCooldown <= 0) {
+                        const dx = other.x - this.x;
+                        if (Math.abs(dx) < this.size * 1.05) {
+                            const greetDur = 80 + Math.floor(Math.random() * 70);
+                            const pair = PET_DIALOGUES.greet[Math.floor(Math.random() * PET_DIALOGUES.greet.length)];
+                            this.state = 'greeting';
+                            this.greetTimer = greetDur;
+                            this.greetCooldown = 220 + Math.floor(Math.random() * 100);
+                            this.direction = dx >= 0 ? 1 : -1;
+                            this.vx = 0;
+                            this.scheduleBubble(pair[0], 6, 72);
+                            other.state = 'greeting';
+                            other.greetTimer = greetDur;
+                            other.greetCooldown = this.greetCooldown;
+                            other.direction = -this.direction;
+                            other.vx = 0;
+                            other.scheduleBubble(pair[1], 52, 72);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const bobAmt = Math.abs(this.vx) < 0.3 ? 3 : 1.2;
+            jumpOffset = Math.sin(this.bobPhase) * bobAmt;
+
+            if (this.hopTimer > 0) {
+                this.hopPhase += Math.PI / 30;
+                jumpOffset -= Math.sin(this.hopPhase) * 20;
+                this.hopTimer--;
+                if (this.hopTimer === 0) { this.squashY = 0.65; }
+            }
+
+            if (this.squashY < 1) this.squashY = Math.min(1, this.squashY + 0.06);
+            else if (this.squashY > 1) this.squashY = Math.max(1, this.squashY - 0.06);
+
             this.x += this.vx;
-            if (this.x < 0) { this.x = 0; this.vx *= -1; }
-            else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx *= -1; }
-            this.direction = this.vx > 0 ? 1 : -1;
+            if (this.x < 0) { this.x = 0; this.vx = Math.abs(this.vx) || this.baseSpeed; }
+            else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx = -(Math.abs(this.vx) || this.baseSpeed); }
+            this.direction = this.vx >= 0 ? 1 : -1;
+            this.tilt = this.vx * 0.025;
         }
 
-        // Align pet to the 2.5D floor baseline + kasama ang jump
         this.y = petsCanvas.height - this.size - 30 + jumpOffset;
     }
 
@@ -604,6 +772,7 @@ class Pet {
         ctx.save();
         ctx.translate(this.x + s / 2, this.y + s / 2);
         if (this.direction === -1) ctx.scale(-1, 1);
+        ctx.rotate(this.tilt * this.direction);
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
@@ -613,9 +782,12 @@ class Pet {
                 const drawH = s;
                 const drawW = s * aspect;
 
-                // 2.5D Trick: Draw Reflection underneath!
+                // Squash/stretch: scale Y, compensate X to keep volume
+                ctx.scale(1 / this.squashY, this.squashY);
+
+                // 2.5D Reflection
                 ctx.save();
-                ctx.translate(0, drawH / 2);
+                ctx.translate(0, drawH / 2 * this.squashY);
                 ctx.scale(1, -0.3);
                 ctx.globalAlpha = 0.2;
                 ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, 0, drawW, drawH);
@@ -630,6 +802,77 @@ class Pet {
                 ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s / 10);
             }
         } catch (e) { }
+        ctx.restore();
+        this.drawBubble(ctx);
+    }
+
+    scheduleBubble(text, delay, duration = 80) {
+        this.pendingBubble = { text, countdown: delay, duration };
+    }
+
+    showBubble(text, duration = 80) {
+        this.bubble = { text, opacity: 0, timer: duration };
+    }
+
+    tickBubble() {
+        if (this.pendingBubble) {
+            this.pendingBubble.countdown--;
+            if (this.pendingBubble.countdown <= 0) {
+                this.showBubble(this.pendingBubble.text, this.pendingBubble.duration);
+                this.pendingBubble = null;
+            }
+        }
+        if (this.bubble) {
+            if (this.bubble.opacity < 1) this.bubble.opacity = Math.min(1, this.bubble.opacity + 0.15);
+            this.bubble.timer--;
+            if (this.bubble.timer < 18) this.bubble.opacity = Math.max(0, this.bubble.timer / 18);
+            if (this.bubble.timer <= 0) this.bubble = null;
+        }
+    }
+
+    drawBubble(ctx) {
+        if (!this.bubble || this.bubble.opacity <= 0) return;
+        const text = this.bubble.text;
+        const cx = this.x + this.size / 2;
+        const cy = this.y;
+        const fontSize = Math.max(11, this.size * 0.17);
+        ctx.save();
+        ctx.globalAlpha = this.bubble.opacity;
+        ctx.font = `bold ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+        const tw = ctx.measureText(text).width;
+        const pad = 7;
+        const bw = tw + pad * 2;
+        const bh = fontSize + pad * 2;
+        let bx = cx - bw / 2;
+        const by = cy - bh - 14;
+        // Clamp horizontally inside canvas
+        bx = Math.max(4, Math.min(petsCanvas.width - bw - 4, bx));
+        // Bubble body
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const r = 6;
+        ctx.moveTo(bx + r, by);
+        ctx.lineTo(bx + bw - r, by);
+        ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+        ctx.lineTo(bx + bw, by + bh - r);
+        ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+        ctx.lineTo(bx + bw / 2 + 5, by + bh);
+        ctx.lineTo(cx, by + bh + 10); // tail tip
+        ctx.lineTo(bx + bw / 2 - 5, by + bh);
+        ctx.lineTo(bx + r, by + bh);
+        ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+        ctx.lineTo(bx, by + r);
+        ctx.quadraticCurveTo(bx, by, bx + r, by);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Text
+        ctx.fillStyle = '#1a1a2e';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + pad, by + bh / 2);
         ctx.restore();
     }
 
@@ -648,12 +891,22 @@ class Pet {
             this.timer = 180;
             this.vx = 0;
             this.frame = 0;
+            const lines = PET_DIALOGUES.jackpot;
+            this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 10, 90);
         } else if (actualMulti >= 1) {
             this.state = 'happy';
             if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+            if (Math.random() < 0.5) {
+                const lines = PET_DIALOGUES.win;
+                this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 5, 65);
+            }
         } else {
             this.state = 'sad';
             if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+            if (Math.random() < 0.6) {
+                const lines = PET_DIALOGUES.sad;
+                this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 5, 65);
+            }
         }
     }
 }
@@ -1965,11 +2218,11 @@ function drawPetStage() {
     petsCtx.shadowBlur = 0;
 
     // Draw the pets on top of this stage
-    pets.forEach(pet => {
-        if (state.activePets.has(pet.name)) {
-            pet.update();
-            pet.draw(petsCtx);
-        }
+    const activePetsList = pets.filter(p => state.activePets.has(p.name));
+    activePetsList.forEach(pet => {
+        const others = activePetsList.filter(p => p !== pet);
+        pet.update(others);
+        pet.draw(petsCtx);
     });
 }
 

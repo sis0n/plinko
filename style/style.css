@@ -121,7 +121,7 @@ body {
     height: 98vh;
     max-width: 1600px;
     display: grid;
-    grid-template-rows: 1fr 140px;
+    grid-template-rows: 1fr 220px;
     /* Tinaasan ng konti ang stage para sa 2.5D */
     gap: 15px;
     padding: 15px;
@@ -983,7 +983,7 @@ input[type=range]::-webkit-slider-thumb {
     }
 
     .pets-section {
-        height: 160px;
+        height: 220px;
         order: 4;
     }
 }
