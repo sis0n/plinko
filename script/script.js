@@ -23,7 +23,7 @@
 // ============================================================================
 const CONFIG = {
     MIN_BET: 1.00,
-    INITIAL_BALANCE: 1000.00,
+    INITIAL_STARS: 1000,
     MAX_HISTORY: 20,
     GRAVITY: 0.2,
     FRICTION: 0.99,
@@ -39,7 +39,7 @@ const CONFIG = {
     BORDER_LIGHT_COUNT: 24, // Dami ng bumbilya sa bawat gilid
 
     // Gamification
-    DAILY_REWARD: 100.00,
+    DAILY_REWARD: 150,
     XP_PER_GAME: 10,
     XP_PER_WIN: 25,
     XP_PER_LEVEL: 1000
@@ -74,25 +74,30 @@ const SHOP_ITEMS = {
     ],
     themes: [
         { id: 'neon', name: '🌃 Neon Nights', description: 'Cyberpunk neon theme', cost: 1500, unlocked: false },
-        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false }
+        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false },
+        { id: 'galaxy', name: '🌌 Galaxy', description: 'Deep space with shooting stars', cost: 3000, unlocked: false },
+        { id: 'deep_sea', name: '🌊 Deep Sea', description: 'Bioluminescent ocean depths', cost: 2000, unlocked: false },
+        { id: 'inferno', name: '🔥 Inferno', description: 'Lava cracks and rising embers', cost: 2500, unlocked: false },
+        { id: 'cherry_blossom', name: '🌸 Cherry Blossom', description: 'Falling petals in the night', cost: 1800, unlocked: false },
+        { id: 'retro_arcade', name: '👾 Retro Arcade', description: 'CRT scanlines and pixel grid', cost: 2200, unlocked: false }
     ]
 };
 
 const ACHIEVEMENTS = [
     { id: 'first_win', name: 'First Blood', description: 'Win your first game', reward: 100, icon: '🎯', condition: () => state.stats.gamesPlayed > 0 && state.stats.totalWon > 0 },
-    { id: 'big_spender', name: 'High Roller', description: 'Bet ₱100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
+    { id: 'big_spender', name: 'High Roller', description: 'Bet ⭐100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
     { id: 'streak_5', name: 'On Fire!', description: 'Win 5 games in a row', reward: 300, icon: '🔥', condition: () => state.winStreak >= 5 },
     { id: 'streak_10', name: 'Unstoppable', description: 'Win 10 games in a row', reward: 1000, icon: '⚡', condition: () => state.stats.longestStreak >= 10 },
-    { id: 'millionaire', name: 'Millionaire', description: 'Reach ₱10,000 balance', reward: 500, icon: '💎', condition: () => state.balance >= 10000 },
+    { id: 'millionaire', name: 'Millionaire', description: 'Reach ⭐10,000', reward: 500, icon: '💎', condition: () => state.stars >= 10000 },
     { id: 'games_100', name: 'Century Club', description: 'Play 100 games', reward: 250, icon: '💯', condition: () => state.stats.gamesPlayed >= 100 },
     { id: 'jackpot', name: 'Jackpot Master', description: 'Hit the highest multiplier', reward: 750, icon: '🎰', condition: () => state.jackpotHit },
-    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ₱0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
+    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ⭐0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
 ];
 
 const DAILY_CHALLENGES = [
     { id: 'daily_wins', name: 'Win 10 games', reward: 150, target: 10, icon: '🎲' },
     { id: 'daily_streak', name: 'Get a 3-win streak', reward: 200, target: 3, icon: '🔥' },
-    { id: 'daily_wagered', name: 'Wager ₱500 total', reward: 100, target: 500, icon: '💰' }
+    { id: 'daily_wagered', name: 'Wager ⭐500 total', reward: 100, target: 500, icon: '💰' }
 ];
 
 const TUTORIAL_STEPS = [
@@ -191,6 +196,21 @@ function showAlert(message) {
     return showCustomModal('Warning', message, false, 'Okay 👌', '');
 }
 
+function showToast(html) {
+    const existing = document.querySelectorAll('.achievement-toast');
+    const offset = existing.length * 80;
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.style.top = `${20 + offset}px`;
+    toast.innerHTML = html;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
 function showConfirm(message) {
     return showCustomModal('Confirmation', message, true, 'Yes ✅', 'No ❌');
 }
@@ -220,8 +240,15 @@ function playSound(audio) {
     audio.play().catch(() => { });
 }
 
+// Migrate old balance+coins to unified stars on first load
+const _oldBalance = Storage.get('balance', null);
+const _oldCoins   = Storage.get('coins', null);
+const _migratedStars = (_oldBalance !== null || _oldCoins !== null)
+    ? ((_oldBalance || 0) + (_oldCoins || 0))
+    : null;
+
 let state = {
-    balance: Storage.get('balance', CONFIG.INITIAL_BALANCE),
+    stars: Storage.get('stars', _migratedStars ?? CONFIG.INITIAL_STARS),
     bet: 10.00,
     lines: 8,
     risk: 'normal',
@@ -245,7 +272,6 @@ let state = {
     // Gamification
     level: Storage.get('level', 1),
     xp: Storage.get('xp', 0),
-    coins: Storage.get('coins', 0), // Separate currency for shop
     activePowerups: Storage.get('activePowerups', []),
     unlockedItems: Storage.get('unlockedItems', []),
     achievements: Storage.get('achievements', []),
@@ -253,17 +279,18 @@ let state = {
     dailyProgress: Storage.get('dailyProgress', { wins: 0, streak: 0, wagered: 0 }),
     biggestBet: Storage.get('biggestBet', 0),
     jackpotHit: Storage.get('jackpotHit', false),
-    comebackAchieved: Storage.get('comebackAchieved', false)
+    comebackAchieved: Storage.get('comebackAchieved', false),
+    ownedPets: Storage.get('ownedPets', []),
+    currentTheme: Storage.get('currentTheme', 'default')
 };
 
 function saveState() {
-    Storage.set('balance', state.balance);
+    Storage.set('stars', state.stars);
     Storage.set('stats', state.stats);
     Storage.set('musicMuted', state.isMusicMuted);
     Storage.set('sfxMuted', state.isSfxMuted);
     Storage.set('level', state.level);
     Storage.set('xp', state.xp);
-    Storage.set('coins', state.coins);
     Storage.set('activePowerups', state.activePowerups);
     Storage.set('unlockedItems', state.unlockedItems);
     Storage.set('achievements', state.achievements);
@@ -272,6 +299,8 @@ function saveState() {
     Storage.set('biggestBet', state.biggestBet);
     Storage.set('jackpotHit', state.jackpotHit);
     Storage.set('comebackAchieved', state.comebackAchieved);
+    Storage.set('ownedPets', state.ownedPets);
+    Storage.set('currentTheme', state.currentTheme);
 }
 
 // ============================================================================
@@ -283,6 +312,7 @@ let slots = [];
 let pets = [];
 let winEffects = [];
 let confetti = [];
+let fireParticles = [];
 let slotHeat = [];
 let slotPulses = [];
 let cachedBgGradient = null;
@@ -306,6 +336,8 @@ const plinkoCanvas = document.getElementById('plinkoCanvas');
 const plinkoCtx = plinkoCanvas.getContext('2d');
 const petsCanvas = document.getElementById('petsCanvas');
 const petsCtx = petsCanvas.getContext('2d');
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
 const balanceEl = document.getElementById('userBalance');
 const betInput = document.getElementById('betAmount');
 const playBtn = document.getElementById('playBtn');
@@ -590,11 +622,392 @@ class Pet {
 }
 
 // ============================================================================
+// ANIMATED BACKGROUND SYSTEM
+// ============================================================================
+let bgParticles = [];
+let bgStars = [];
+let bgShootingStars = [];
+let bgLastShot = 0;
+
+function initBgParticles() {
+    bgParticles = [];
+    bgStars = [];
+    bgShootingStars = [];
+    const w = bgCanvas.width;
+    const h = bgCanvas.height;
+
+    switch (state.currentTheme) {
+        case 'galaxy':
+            for (let i = 0; i < 220; i++) {
+                bgStars.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    size: Math.random() * 1.8 + 0.3,
+                    speed: Math.random() * 0.04 + 0.008,
+                    phase: Math.random() * Math.PI * 2,
+                    brightness: Math.random() * 0.5 + 0.5
+                });
+            }
+            break;
+        case 'deep_sea':
+            for (let i = 0; i < 35; i++) bgParticles.push(_mkBubble(w, h, true));
+            break;
+        case 'inferno':
+            for (let i = 0; i < 55; i++) bgParticles.push(_mkEmber(w, h, true));
+            break;
+        case 'cherry_blossom':
+            for (let i = 0; i < 45; i++) bgParticles.push(_mkPetal(w, h, true));
+            break;
+        case 'neon':
+            for (let i = 0; i < 18; i++) {
+                bgParticles.push({
+                    x: Math.random() * w, y: Math.random() * h,
+                    vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+                    r: Math.random() * 3 + 1,
+                    color: ['#00e5ff', '#cc44ff', '#ff00ff'][Math.floor(Math.random() * 3)],
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            break;
+        case 'gold_rush':
+            for (let i = 0; i < 35; i++) bgParticles.push(_mkSparkle(w, h, true));
+            break;
+        case 'retro_arcade':
+            // No particles needed — scanlines are drawn procedurally
+            break;
+    }
+}
+
+function _mkBubble(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : h + 20,
+        r: Math.random() * 9 + 3,
+        vy: -(Math.random() * 0.5 + 0.2),
+        vx: (Math.random() - 0.5) * 0.2,
+        opacity: Math.random() * 0.35 + 0.1,
+        wobblePhase: Math.random() * Math.PI * 2,
+        wobbleSpeed: Math.random() * 0.02 + 0.01
+    };
+}
+
+function _mkEmber(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : h + 5,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: -(Math.random() * 1.8 + 0.6),
+        size: Math.random() * 3 + 1,
+        life: rand ? Math.random() : 1,
+        decay: Math.random() * 0.004 + 0.002,
+        color: ['#ff4400', '#ff6600', '#ffaa00', '#ff2200'][Math.floor(Math.random() * 4)]
+    };
+}
+
+function _mkPetal(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : -20,
+        vy: Math.random() * 0.7 + 0.25,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.025,
+        size: Math.random() * 9 + 5,
+        opacity: Math.random() * 0.55 + 0.25,
+        swayPhase: Math.random() * Math.PI * 2,
+        swaySpeed: Math.random() * 0.018 + 0.008
+    };
+}
+
+function _mkSparkle(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : -10,
+        vy: Math.random() * 1.2 + 0.4,
+        vx: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 3 + 1,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.08,
+        phase: Math.random() * Math.PI * 2
+    };
+}
+
+function drawBackground() {
+    const w = bgCanvas.width;
+    const h = bgCanvas.height;
+    const t = Date.now();
+
+    bgCtx.clearRect(0, 0, w, h);
+
+    switch (state.currentTheme) {
+        case 'galaxy':        _drawGalaxy(w, h, t);       break;
+        case 'deep_sea':      _drawDeepSea(w, h, t);      break;
+        case 'inferno':       _drawInferno(w, h, t);      break;
+        case 'cherry_blossom':_drawCherryBlossom(w, h, t);break;
+        case 'neon':          _drawNeon(w, h, t);         break;
+        case 'gold_rush':     _drawGoldRush(w, h, t);     break;
+        case 'retro_arcade':  _drawRetroArcade(w, h, t);  break;
+    }
+}
+
+function _drawGalaxy(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#000008');
+    grad.addColorStop(1, '#07000f');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    bgStars.forEach(s => {
+        const alpha = s.brightness * (0.4 + 0.6 * Math.sin(t * s.speed + s.phase));
+        bgCtx.beginPath();
+        bgCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(255,255,255,${alpha})`;
+        bgCtx.fill();
+    });
+
+    // Shooting stars
+    if (t - bgLastShot > 3500 + Math.random() * 3000) {
+        bgLastShot = t;
+        bgShootingStars.push({
+            x: Math.random() * w * 0.6,
+            y: Math.random() * h * 0.4,
+            vx: 9 + Math.random() * 7,
+            vy: 3 + Math.random() * 5,
+            life: 1, decay: 0.025
+        });
+    }
+    for (let i = bgShootingStars.length - 1; i >= 0; i--) {
+        const s = bgShootingStars[i];
+        const tailLen = 80;
+        const grad = bgCtx.createLinearGradient(s.x, s.y, s.x - s.vx * 5, s.y - s.vy * 5);
+        grad.addColorStop(0, `rgba(255,255,255,${s.life})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        bgCtx.beginPath();
+        bgCtx.moveTo(s.x, s.y);
+        bgCtx.lineTo(s.x - s.vx * (tailLen / 14), s.y - s.vy * (tailLen / 14));
+        bgCtx.strokeStyle = grad;
+        bgCtx.lineWidth = 2;
+        bgCtx.stroke();
+        s.x += s.vx; s.y += s.vy; s.life -= s.decay;
+        if (s.life <= 0) bgShootingStars.splice(i, 1);
+    }
+}
+
+function _drawDeepSea(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#000d1a');
+    grad.addColorStop(1, '#001a2e');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Light rays
+    for (let i = 0; i < 5; i++) {
+        const rx = (w / 5) * i + w / 10 + Math.sin(t * 0.0004 + i) * 25;
+        const alpha = 0.015 + Math.sin(t * 0.0008 + i * 1.3) * 0.008;
+        const rg = bgCtx.createLinearGradient(rx, 0, rx + 50, h);
+        rg.addColorStop(0, `rgba(0,200,255,${alpha})`);
+        rg.addColorStop(1, 'rgba(0,200,255,0)');
+        bgCtx.beginPath();
+        bgCtx.moveTo(rx, 0); bgCtx.lineTo(rx + 70, h);
+        bgCtx.lineTo(rx + 110, h); bgCtx.lineTo(rx + 40, 0);
+        bgCtx.fillStyle = rg; bgCtx.fill();
+    }
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const b = bgParticles[i];
+        b.x += b.vx + Math.sin(t * b.wobbleSpeed + b.wobblePhase) * 0.3;
+        b.y += b.vy;
+        if (b.y < -b.r * 2) { bgParticles[i] = _mkBubble(w, h); continue; }
+        bgCtx.beginPath();
+        bgCtx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        bgCtx.strokeStyle = `rgba(100,220,255,${b.opacity})`;
+        bgCtx.lineWidth = 1;
+        bgCtx.stroke();
+        bgCtx.beginPath();
+        bgCtx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.28, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(210,245,255,${b.opacity * 0.7})`;
+        bgCtx.fill();
+    }
+}
+
+function _drawInferno(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a0000');
+    grad.addColorStop(0.65, '#1c0400');
+    grad.addColorStop(1, '#2e0800');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Lava cracks (redrawn each frame from seed — cheap)
+    bgCtx.save();
+    bgCtx.lineWidth = 1;
+    for (let i = 0; i < 7; i++) {
+        const pulse = 0.06 + Math.sin(t * 0.002 + i) * 0.04;
+        bgCtx.strokeStyle = `rgba(255,80,0,${pulse})`;
+        bgCtx.beginPath();
+        let cx = (w / 7) * i + 20, cy = h;
+        bgCtx.moveTo(cx, cy);
+        while (cy > h * 0.55) {
+            cx += Math.sin(i * 13.7 + cy * 0.03) * 25;
+            cy -= 35 + Math.sin(i * 7.3 + cx * 0.02) * 15;
+            bgCtx.lineTo(cx, cy);
+        }
+        bgCtx.stroke();
+    }
+    bgCtx.restore();
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const e = bgParticles[i];
+        e.x += e.vx; e.y += e.vy; e.life -= e.decay;
+        if (e.life <= 0 || e.y < -10) { bgParticles[i] = _mkEmber(w, h); continue; }
+        bgCtx.beginPath();
+        bgCtx.arc(e.x, e.y, e.size * e.life, 0, Math.PI * 2);
+        bgCtx.fillStyle = e.color;
+        bgCtx.globalAlpha = e.life * 0.75;
+        bgCtx.fill();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 60 && Math.random() < 0.35) bgParticles.push(_mkEmber(w, h));
+}
+
+function _drawCherryBlossom(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#1a0d10');
+    grad.addColorStop(1, '#0d0508');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const p = bgParticles[i];
+        p.x += Math.sin(t * p.swaySpeed + p.swayPhase) * 0.6;
+        p.y += p.vy;
+        p.rotation += p.rotSpeed;
+        if (p.y > h + 20) { bgParticles[i] = _mkPetal(w, h); continue; }
+        bgCtx.save();
+        bgCtx.translate(p.x, p.y);
+        bgCtx.rotate(p.rotation);
+        bgCtx.globalAlpha = p.opacity;
+        bgCtx.beginPath();
+        bgCtx.ellipse(0, 0, p.size * 0.38, p.size, 0, 0, Math.PI * 2);
+        bgCtx.fillStyle = '#ffb7c5';
+        bgCtx.fill();
+        bgCtx.restore();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 45 && Math.random() < 0.04) bgParticles.push(_mkPetal(w, h));
+}
+
+function _drawNeon(w, h, t) {
+    bgCtx.fillStyle = '#02010c';
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Grid
+    bgCtx.strokeStyle = 'rgba(0,229,255,0.035)';
+    bgCtx.lineWidth = 1;
+    const gs = 65;
+    for (let x = 0; x < w; x += gs) { bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, h); bgCtx.stroke(); }
+    for (let y = 0; y < h; y += gs) { bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke(); }
+
+    // Floating orbs
+    bgParticles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+        const alpha = 0.25 + 0.25 * Math.sin(t * 0.002 + p.phase);
+        bgCtx.beginPath();
+        bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        bgCtx.shadowBlur = 18;
+        bgCtx.shadowColor = p.color;
+        bgCtx.globalAlpha = alpha;
+        bgCtx.fillStyle = p.color;
+        bgCtx.fill();
+        bgCtx.shadowBlur = 0;
+        bgCtx.globalAlpha = 1;
+    });
+}
+
+function _drawGoldRush(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a0700');
+    grad.addColorStop(1, '#1a1100');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const s = bgParticles[i];
+        s.x += s.vx; s.y += s.vy;
+        s.rotation += s.rotSpeed;
+        s.phase += 0.05;
+        if (s.y > h + 10) { bgParticles[i] = _mkSparkle(w, h); continue; }
+        const alpha = (0.55 + 0.45 * Math.sin(s.phase)) * 0.8;
+        bgCtx.save();
+        bgCtx.translate(s.x, s.y);
+        bgCtx.rotate(s.rotation);
+        bgCtx.globalAlpha = alpha;
+        bgCtx.beginPath();
+        for (let j = 0; j < 4; j++) {
+            const a = (j / 4) * Math.PI * 2;
+            bgCtx.lineTo(Math.cos(a) * s.size, Math.sin(a) * s.size);
+            bgCtx.lineTo(Math.cos(a + Math.PI / 4) * (s.size * 0.4), Math.sin(a + Math.PI / 4) * (s.size * 0.4));
+        }
+        bgCtx.closePath();
+        bgCtx.fillStyle = '#ffd700';
+        bgCtx.fill();
+        bgCtx.restore();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 35 && Math.random() < 0.1) bgParticles.push(_mkSparkle(w, h));
+}
+
+function _drawRetroArcade(w, h, t) {
+    bgCtx.fillStyle = '#000000';
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Pixel grid dots
+    bgCtx.fillStyle = 'rgba(0,80,0,0.18)';
+    for (let x = 0; x < w; x += 12) {
+        for (let y = 0; y < h; y += 12) {
+            bgCtx.fillRect(x, y, 1, 1);
+        }
+    }
+
+    // CRT scanlines
+    for (let y = 0; y < h; y += 3) {
+        bgCtx.fillStyle = 'rgba(0,0,0,0.2)';
+        bgCtx.fillRect(0, y, w, 1);
+    }
+
+    // Slow horizontal scan glow
+    const scanY = ((t * 0.03) % h);
+    const scanGrad = bgCtx.createLinearGradient(0, scanY - 40, 0, scanY + 40);
+    scanGrad.addColorStop(0, 'rgba(0,255,80,0)');
+    scanGrad.addColorStop(0.5, 'rgba(0,255,80,0.03)');
+    scanGrad.addColorStop(1, 'rgba(0,255,80,0)');
+    bgCtx.fillStyle = scanGrad;
+    bgCtx.fillRect(0, scanY - 40, w, 80);
+}
+
+function applyTheme(id) {
+    document.body.classList.remove(
+        'theme-neon', 'theme-gold-rush', 'theme-galaxy',
+        'theme-deep-sea', 'theme-inferno', 'theme-cherry-blossom', 'theme-retro-arcade'
+    );
+    if (id !== 'default') document.body.classList.add(`theme-${id.replace(/_/g, '-')}`);
+    state.currentTheme = id;
+    initBgParticles();
+}
+
+// ============================================================================
 // GAME FUNCTIONS & RGB LIGHTS
 // ============================================================================
 function triggerRGBEffect(mode) {
     state.borderEffect.mode = mode;
     state.borderEffect.timer = 60; // 1 second animation duration (60 fps)
+}
+
+function getFirePalette(streak) {
+    if (streak >= 15) return { colors: ['#ff1493', '#ff0066', '#ff44bb', '#ee00aa'], glow: '#ff1493' };
+    if (streak >= 10) return { colors: ['#00aaff', '#0055ff', '#44ddff', '#00ccff'], glow: '#00aaff' };
+    return { colors: ['#ff6b00', '#ff4400', '#ffaa00', '#ff8800'], glow: '#ff6600' };
 }
 
 function drawLightbulbs(ctx, w, h) {
@@ -656,7 +1069,13 @@ function drawLightbulbs(ctx, w, h) {
         ctx.save();
 
         if (!color) {
-            if (state.autoPlay) {
+            if (state.winStreak >= 5) {
+                // Fire border — flicker based on time + bulb index
+                const palette = getFirePalette(state.winStreak);
+                const flicker = Math.floor((time / 60 + index * 0.7)) % palette.colors.length;
+                color = palette.colors[flicker];
+                glow = 20 + Math.sin(time / 80 + index * 0.3) * 10;
+            } else if (state.autoPlay) {
                 // AutoPlay Marquee
                 let dist = (headIndex - index + totalBulbs) % totalBulbs;
                 let tailLength = 15;
@@ -706,7 +1125,8 @@ function dropBall() {
         vx: (Math.random() - 0.5) * 2, vy: 0,
         radius: Math.max(2, spacing * 0.15),
         color: color,
-        trail: []
+        trail: [],
+        bet: state.bet
     });
 }
 
@@ -732,24 +1152,25 @@ function checkDailyLogin() {
     const today = new Date().toDateString();
     if (state.lastLogin !== today) {
         state.lastLogin = today;
-        state.balance += CONFIG.DAILY_REWARD;
-        state.coins += 50;
+        state.stars += CONFIG.DAILY_REWARD;
         state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
-        showAlert(`Daily Reward! 🎁<br>+₱${CONFIG.DAILY_REWARD.toFixed(2)} Balance<br>+50 Coins`);
+        showAlert(`Daily Reward! 🎁<br>+${CONFIG.DAILY_REWARD} ⭐ Stars`);
         saveState();
     }
 }
 
 function addXP(amount) {
+    floatXP(amount);
     state.xp += amount;
     const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
 
     if (state.xp >= xpNeeded) {
         state.xp -= xpNeeded;
         state.level++;
-        const coinReward = state.level * 100;
-        state.coins += coinReward;
-        showAlert(`🎉 Level Up!<br>Level ${state.level}<br>+${coinReward} Coins`);
+        const starReward = state.level * 100;
+        state.stars += starReward;
+        showToast(`🎉 <strong>Level Up!</strong><br>You are now <strong style="color:var(--gold)">Level ${state.level}</strong><br><span>+${starReward} ⭐ Stars</span>`);
+        createLevelUpBurst();
         playSound(new Audio('mp3/paldo-nanaman.mp3'));
     }
     updateLevelDisplay();
@@ -760,9 +1181,8 @@ function checkAchievements() {
     ACHIEVEMENTS.forEach(ach => {
         if (!state.achievements.includes(ach.id) && ach.condition()) {
             state.achievements.push(ach.id);
-            state.balance += ach.reward;
-            state.coins += ach.reward / 2;
-            showAlert(`🏆 Achievement Unlocked!<br>${ach.icon} ${ach.name}<br>+₱${ach.reward} & +${ach.reward/2} Coins`);
+            state.stars += ach.reward;
+            showToast(`🏆 <strong>Achievement Unlocked!</strong><br>${ach.icon} ${ach.name}<br><span>+${ach.reward} ⭐</span>`);
             playSound(new Audio('mp3/paldo-nanaman.mp3'));
             saveState();
         }
@@ -773,12 +1193,12 @@ function activatePowerup(powerupId) {
     const powerup = SHOP_ITEMS.powerups.find(p => p.id === powerupId);
     if (!powerup) return;
 
-    if (state.coins < powerup.cost) {
-        showAlert('Not enough coins! 💰');
+    if (state.stars < powerup.cost) {
+        showAlert('Not enough stars! ⭐');
         return;
     }
 
-    state.coins -= powerup.cost;
+    state.stars -= powerup.cost;
     state.activePowerups.push({
         id: powerup.id,
         name: powerup.name,
@@ -832,7 +1252,7 @@ function handleLoss(betAmount) {
     const shield = state.activePowerups.find(p => p.id === 'shield');
     if (shield) {
         refund = betAmount * 0.5;
-        state.balance += refund;
+        state.stars += refund;
         consumePowerup('shield');
     }
 
@@ -857,6 +1277,20 @@ function updatePhysics() {
 
         ball.trail.push({ x: ball.x, y: ball.y });
         if (ball.trail.length > CONFIG.TRAIL_LENGTH) ball.trail.shift();
+
+        // Emit fire particles when on a streak
+        if (state.winStreak >= 5 && Math.random() < 0.5) {
+            const palette = getFirePalette(state.winStreak);
+            fireParticles.push({
+                x: ball.x + (Math.random() - 0.5) * ball.radius * 1.5,
+                y: ball.y + (Math.random() - 0.5) * ball.radius * 0.5,
+                vx: (Math.random() - 0.5) * 1.2,
+                vy: -(Math.random() * 2 + 1),
+                color: palette.colors[Math.floor(Math.random() * palette.colors.length)],
+                size: Math.random() * 3 + 1.5,
+                life: 1
+            });
+        }
 
         ball.vy += CONFIG.GRAVITY;
         ball.vx *= CONFIG.FRICTION;
@@ -883,7 +1317,7 @@ function updatePhysics() {
 
         slots.forEach((slot, idx) => {
             if (ball.y > slot.y && ball.x > slot.x && ball.x < slot.x + slot.width) {
-                handleWin(slot.multiplier, idx, slot);
+                handleWin(slot.multiplier, idx, slot, ball.bet);
                 balls.splice(i, 1);
             }
         });
@@ -912,20 +1346,30 @@ function updatePhysics() {
         if (p.life <= 0 || p.y > plinkoCanvas.height) confetti.splice(i, 1);
     }
 
-    if (balls.length === 0 && state.balance < CONFIG.MIN_BET) {
+    for (let i = fireParticles.length - 1; i >= 0; i--) {
+        const p = fireParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.97;
+        p.life -= 0.06;
+        p.size *= 0.97;
+        if (p.life <= 0) fireParticles.splice(i, 1);
+    }
+
+    if (balls.length === 0 && state.stars < CONFIG.MIN_BET) {
         if (!state.isGameOver) {
             showGameOver();
         }
-    } else if (balls.length === 0 && state.balance >= CONFIG.MIN_BET) {
+    } else if (balls.length === 0 && state.stars >= CONFIG.MIN_BET) {
         state.isGameOver = false;
     }
 }
 
-function handleWin(multiplier, slotIdx, slot) {
+function handleWin(multiplier, slotIdx, slot, bet) {
     let actualMulti = multiplier;
 
     // Check for comeback achievement
-    if (state.balance <= 0 && multiplier >= 1) {
+    if (state.stars <= 0 && multiplier >= 1) {
         state.comebackAchieved = true;
     }
 
@@ -939,6 +1383,14 @@ function handleWin(multiplier, slotIdx, slot) {
         if (state.winStreak > CONFIG.STREAK_BONUS_START) {
             const bonus = Math.floor((state.winStreak - CONFIG.STREAK_BONUS_START) * CONFIG.STREAK_BONUS_RATE * 10) / 10;
             actualMulti = multiplier + bonus;
+            winEffects.push({
+                text: `🔥 x${state.winStreak} COMBO!`,
+                x: plinkoCanvas.width / 2,
+                y: plinkoCanvas.height / 3,
+                opacity: 1,
+                rotation: 0,
+                combo: true
+            });
         }
         if (state.winStreak > state.stats.longestStreak) {
             state.stats.longestStreak = state.winStreak;
@@ -967,7 +1419,7 @@ function handleWin(multiplier, slotIdx, slot) {
         state.activePowerups.forEach(p => consumePowerup(p.id));
     } else {
         // Handle loss
-        const refund = handleLoss(state.bet);
+        const refund = handleLoss(bet);
 
         // Check streak saver
         if (!handleStreakLoss()) {
@@ -983,20 +1435,14 @@ function handleWin(multiplier, slotIdx, slot) {
         addXP(CONFIG.XP_PER_GAME);
     }
 
-    let winAmount = state.bet * actualMulti;
+    let winAmount = bet * actualMulti;
 
     // Apply powerups
     const boosted = applyPowerups(actualMulti, winAmount);
     actualMulti = boosted.multiplier;
     winAmount = boosted.winAmount;
 
-    state.balance += winAmount;
-
-    // Award coins based on win
-    if (multiplier >= 1) {
-        const coinReward = Math.floor(winAmount / 10);
-        state.coins += coinReward;
-    }
+    state.stars += winAmount;
 
     if (!slotHeat[slotIdx]) slotHeat[slotIdx] = 0;
     slotHeat[slotIdx] = Math.min(slotHeat[slotIdx] + 1, 5);
@@ -1004,8 +1450,8 @@ function handleWin(multiplier, slotIdx, slot) {
     slotPulses.push({ slotIndex: slotIdx, life: 30 });
 
     state.stats.gamesPlayed++;
-    state.stats.totalWagered += state.bet;
-    state.dailyProgress.wagered += state.bet;
+    state.stats.totalWagered += bet;
+    state.dailyProgress.wagered += bet;
     state.stats.totalWon += winAmount;
     if (winAmount > state.stats.biggestWin) state.stats.biggestWin = winAmount;
     if (actualMulti > state.stats.biggestMultiplier) state.stats.biggestMultiplier = actualMulti;
@@ -1016,7 +1462,7 @@ function handleWin(multiplier, slotIdx, slot) {
     saveState();
     updateDisplay();
     updateStatsDisplay();
-    addHistoryEntry(state.bet, actualMulti);
+    addHistoryEntry(bet, actualMulti);
 
     if (actualMulti >= CONFIG.CONFETTI_THRESHOLD && slot) {
         createConfetti(slot.x + slot.width / 2, slot.y);
@@ -1075,8 +1521,43 @@ function hideGameOver() {
     if (tuco) tuco.pause();
 }
 
+function refreshPresetButtons() {
+    const presetsEl = document.getElementById('betPresets');
+    if (!presetsEl) return;
+    presetsEl.querySelectorAll('.preset-btn').forEach((btn, i) => {
+        btn.disabled = CONFIG.PRESETS[i] > state.stars;
+    });
+}
+
+function renderDailyChallenges() {
+    const el = document.getElementById('challengesDisplay');
+    if (!el) return;
+    const progress = state.dailyProgress;
+    const progressMap = {
+        daily_wins:    progress.wins,
+        daily_streak:  progress.streak,
+        daily_wagered: progress.wagered
+    };
+    el.innerHTML = DAILY_CHALLENGES.map(c => {
+        const current = Math.min(progressMap[c.id] || 0, c.target);
+        const pct = Math.floor((current / c.target) * 100);
+        const done = current >= c.target;
+        return `
+            <div class="challenge-item ${done ? 'challenge-done' : ''}">
+                <div class="challenge-header">
+                    <span>${c.icon} ${c.name}</span>
+                    <span class="challenge-reward">+${c.reward}⭐</span>
+                </div>
+                <div class="challenge-bar-wrap">
+                    <div class="challenge-bar" style="width:${pct}%"></div>
+                </div>
+                <div class="challenge-progress">${current} / ${c.target}${done ? ' ✓' : ''}</div>
+            </div>`;
+    }).join('');
+}
+
 function updateDisplay() {
-    if (balanceEl) balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
+    if (balanceEl) balanceEl.textContent = `⭐${state.stars.toFixed(2)}`;
 
     const streakEl = document.getElementById('streakDisplay');
     if (streakEl) {
@@ -1092,12 +1573,45 @@ function updateDisplay() {
     if (maxWinEl) {
         const maxMulti = Math.max(...(MULTIPLIERS[state.lines]?.[state.risk] || [1]));
         const maxWin = state.bet * maxMulti;
-        maxWinEl.textContent = `Max: ₱${maxWin.toFixed(2)} (${maxMulti}x)`;
+        maxWinEl.textContent = `Max: ⭐${maxWin.toFixed(2)} (${maxMulti}x)`;
     }
 
     updateLevelDisplay();
-    updateCoinDisplay();
     updatePowerupDisplay();
+    refreshPresetButtons();
+    renderDailyChallenges();
+}
+
+function floatXP(amount) {
+    const levelEl = document.getElementById('levelDisplay');
+    if (!levelEl) return;
+    const rect = levelEl.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'xp-float';
+    el.textContent = `+${amount} XP`;
+    el.style.left = `${rect.left + rect.width / 2}px`;
+    el.style.top = `${rect.top}px`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+}
+
+function createLevelUpBurst() {
+    const cx = plinkoCanvas.width / 2;
+    const cy = plinkoCanvas.height / 2;
+    for (let i = 0; i < 60; i++) {
+        const angle = (Math.PI * 2 * i) / 60;
+        const speed = Math.random() * 6 + 2;
+        confetti.push({
+            x: cx, y: cy,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 3,
+            color: ['#f9d71c', '#d4af37', '#ffaa00', '#fff'][Math.floor(Math.random() * 4)],
+            size: Math.random() * 5 + 3,
+            life: 1,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.2
+        });
+    }
 }
 
 function updateLevelDisplay() {
@@ -1114,13 +1628,6 @@ function updateLevelDisplay() {
                 <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
             </div>
         `;
-    }
-}
-
-function updateCoinDisplay() {
-    const coinEl = document.getElementById('coinDisplay');
-    if (coinEl) {
-        coinEl.textContent = `🪙 ${state.coins} Coins`;
     }
 }
 
@@ -1148,8 +1655,8 @@ function updateStatsDisplay() {
 
     statsEl.innerHTML = `
         <div class="stat-row"><span>Games:</span><span>${gamesPlayed}</span></div>
-        <div class="stat-row"><span>Net:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">₱${netProfit.toFixed(2)}</span></div>
-        <div class="stat-row"><span>Best Win:</span><span class="win">₱${biggestWin.toFixed(2)}</span></div>
+        <div class="stat-row"><span>Net:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">⭐${netProfit.toFixed(2)}</span></div>
+        <div class="stat-row"><span>Best Win:</span><span class="win">⭐${biggestWin.toFixed(2)}</span></div>
         <div class="stat-row"><span>Best Multi:</span><span class="gold">${biggestMultiplier}x</span></div>
         <div class="stat-row"><span>Longest Streak:</span><span class="gold">🔥${longestStreak}</span></div>
         <div class="stat-row"><span>ROI:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">${winRate}%</span></div>
@@ -1166,9 +1673,9 @@ function addHistoryEntry(bet, multi) {
     const entry = document.createElement('div');
     entry.className = 'history-entry';
     entry.innerHTML = `
-        <span class="hist-bet">₱${bet.toFixed(2)}</span>
-        <span class="hist-multi">${multi}x</span>
-        <span class="hist-profit ${multi >= 1 ? 'win' : 'loss'}">₱${profit.toFixed(2)}</span>
+        <span class="hist-bet">⭐${bet.toFixed(2)}</span>
+        <span class="hist-multi">${parseFloat(multi.toFixed(2))}x</span>
+        <span class="hist-profit ${multi >= 1 ? 'win' : 'loss'}">⭐${profit.toFixed(2)}</span>
     `;
     historyList.prepend(entry);
     if (historyList.children.length > CONFIG.MAX_HISTORY) {
@@ -1220,6 +1727,10 @@ function resizeCanvases() {
         petsCanvas.width = petsPane.offsetWidth;
         petsCanvas.height = petsPane.offsetHeight;
     }
+
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    initBgParticles();
 
     cachedBgGradient = null;
     generateBoard();
@@ -1320,11 +1831,126 @@ function drawPetStage() {
 }
 
 // ============================================================================
+// THEME STYLE HELPER
+// ============================================================================
+function getThemeStyle() {
+    const t = Date.now();
+    switch (state.currentTheme) {
+        case 'neon':
+            return {
+                ballColor:     '#00e5ff',
+                ballGlow:      28 + Math.sin(t / 200) * 10,
+                ballGlowColor: '#00e5ff',
+                trailColor:    '#00e5ff',
+                trailOpacity:  0.55,
+                pegColor:      '#cc44ff',
+                pegGlow:       10,
+                pegGlowColor:  '#9900ff',
+                pegStroke:     '#6600cc',
+                slotGlow:      6
+            };
+        case 'gold_rush':
+            return {
+                ballColor:     '#ffd700',
+                ballGlow:      20 + Math.sin(t / 300) * 6,
+                ballGlowColor: '#ffaa00',
+                trailColor:    '#ffcc00',
+                trailOpacity:  0.45,
+                pegColor:      '#d4af37',
+                pegGlow:       8,
+                pegGlowColor:  '#ffcc00',
+                pegStroke:     '#886600',
+                slotGlow:      4
+            };
+        case 'galaxy':
+            return {
+                ballColor:     '#c084fc',
+                ballGlow:      22 + Math.sin(t / 250) * 8,
+                ballGlowColor: '#818cf8',
+                trailColor:    '#a855f7',
+                trailOpacity:  0.5,
+                pegColor:      '#818cf8',
+                pegGlow:       8,
+                pegGlowColor:  '#6366f1',
+                pegStroke:     '#4338ca',
+                slotGlow:      5
+            };
+        case 'deep_sea':
+            return {
+                ballColor:     '#22d3ee',
+                ballGlow:      20 + Math.sin(t / 400) * 8,
+                ballGlowColor: '#06b6d4',
+                trailColor:    '#67e8f9',
+                trailOpacity:  0.5,
+                pegColor:      '#06b6d4',
+                pegGlow:       9,
+                pegGlowColor:  '#0891b2',
+                pegStroke:     '#0e7490',
+                slotGlow:      5
+            };
+        case 'inferno':
+            return {
+                ballColor:     '#f97316',
+                ballGlow:      25 + Math.sin(t / 150) * 10,
+                ballGlowColor: '#ef4444',
+                trailColor:    '#fb923c',
+                trailOpacity:  0.55,
+                pegColor:      '#f97316',
+                pegGlow:       10,
+                pegGlowColor:  '#dc2626',
+                pegStroke:     '#991b1b',
+                slotGlow:      6
+            };
+        case 'cherry_blossom':
+            return {
+                ballColor:     '#f9a8d4',
+                ballGlow:      18 + Math.sin(t / 350) * 6,
+                ballGlowColor: '#ec4899',
+                trailColor:    '#fbcfe8',
+                trailOpacity:  0.45,
+                pegColor:      '#f472b6',
+                pegGlow:       7,
+                pegGlowColor:  '#ec4899',
+                pegStroke:     '#be185d',
+                slotGlow:      4
+            };
+        case 'retro_arcade':
+            return {
+                ballColor:     '#4ade80',
+                ballGlow:      16,
+                ballGlowColor: '#22c55e',
+                trailColor:    '#86efac',
+                trailOpacity:  0.5,
+                pegColor:      '#4ade80',
+                pegGlow:       8,
+                pegGlowColor:  '#22c55e',
+                pegStroke:     '#166534',
+                slotGlow:      5
+            };
+        default:
+            return {
+                ballColor:     null,
+                ballGlow:      0,
+                ballGlowColor: null,
+                trailColor:    null,
+                trailOpacity:  0.3,
+                pegColor:      '#e0e0e0',
+                pegGlow:       0,
+                pegGlowColor:  null,
+                pegStroke:     '#555555',
+                slotGlow:      0
+            };
+    }
+}
+
+// ============================================================================
 // DRAW - FLAT 2D PLINKO BOARD
 // ============================================================================
 function draw() {
+    const ts = getThemeStyle();
     updatePhysics();
     updateControlsState();
+    drawBackground();
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
     // 1. FLAT BACKGROUND
@@ -1348,15 +1974,18 @@ function draw() {
 
     // 2. FLAT PEGS (Simpleng Circles)
     pegs.forEach(peg => {
-        // Tinanggal ang shadow, body layers, at specular highlight.
-        // Isang simpleng flat circle na may border.
-        plinkoCtx.fillStyle = '#e0e0e0';
-        plinkoCtx.strokeStyle = '#555555'; // Darker gray outline
+        if (ts.pegGlow > 0) {
+            plinkoCtx.shadowBlur = ts.pegGlow;
+            plinkoCtx.shadowColor = ts.pegGlowColor;
+        }
+        plinkoCtx.fillStyle = ts.pegColor;
+        plinkoCtx.strokeStyle = ts.pegStroke;
         plinkoCtx.lineWidth = 1;
         plinkoCtx.beginPath();
         plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
         plinkoCtx.fill();
         plinkoCtx.stroke();
+        plinkoCtx.shadowBlur = 0;
     });
 
     // 3 & 5. SLOTS (Merged and Flattened)
@@ -1391,7 +2020,12 @@ function draw() {
             plinkoCtx.lineWidth = 2 + heat; // Kumakapal ang linya kapag mainit
         }
 
+        if (ts.slotGlow > 0) {
+            plinkoCtx.shadowBlur = ts.slotGlow;
+            plinkoCtx.shadowColor = color;
+        }
         plinkoCtx.strokeRect(slot.x, slot.y, slot.width, slot.height);
+        plinkoCtx.shadowBlur = 0;
 
         // C. TEXT (Pina-simple ang shadow)
         let displayMulti = m >= 1000 ? (m / 1000) + 'k' : m;
@@ -1410,14 +2044,27 @@ function draw() {
         plinkoCtx.restore();
     });
 
+    // Fire particles (drawn behind balls)
+    fireParticles.forEach(p => {
+        plinkoCtx.save();
+        plinkoCtx.globalAlpha = p.life * 0.85;
+        plinkoCtx.shadowBlur = 8;
+        plinkoCtx.shadowColor = p.color;
+        plinkoCtx.fillStyle = p.color;
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        plinkoCtx.fill();
+        plinkoCtx.restore();
+    });
+
     // 4. FLAT BALLS
     balls.forEach(ball => {
         // Trail (Nananatili dahil flat naman ito)
         if (ball.trail && ball.trail.length > 1) {
             for (let i = 0; i < ball.trail.length - 1; i++) {
                 const alpha = (i + 1) / ball.trail.length;
-                plinkoCtx.globalAlpha = alpha * 0.3;
-                plinkoCtx.fillStyle = ball.color;
+                plinkoCtx.globalAlpha = alpha * ts.trailOpacity;
+                plinkoCtx.fillStyle = ts.trailColor || ball.color;
                 plinkoCtx.beginPath();
                 plinkoCtx.arc(ball.trail[i].x, ball.trail[i].y, ball.radius * alpha, 0, Math.PI * 2);
                 plinkoCtx.fill();
@@ -1425,17 +2072,35 @@ function draw() {
             plinkoCtx.globalAlpha = 1;
         }
 
-        // Tinanggal ang Ball Shadow sa ilalim.
-        // Tinanggal ang Gradient Highlight sa ibabaw.
+        // Theme glow (overridden by fire streak)
+        if (ts.ballGlow > 0 && state.winStreak < 5) {
+            plinkoCtx.shadowBlur = ts.ballGlow;
+            plinkoCtx.shadowColor = ts.ballGlowColor;
+        }
+        // Fire streak glow overrides theme
+        if (state.winStreak >= 5) {
+            const palette = getFirePalette(state.winStreak);
+            plinkoCtx.shadowBlur = 18;
+            plinkoCtx.shadowColor = palette.glow;
+        }
 
-        // Isang solid color circle na lang na may manipis na border para di magmukhang flat icon lang
-        plinkoCtx.fillStyle = ball.color;
-        plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
-        plinkoCtx.lineWidth = 1;
-        plinkoCtx.beginPath();
-        plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        plinkoCtx.fill();
-        plinkoCtx.stroke();
+        if (state.currentTheme === 'gold_rush' && state.winStreak < 5) {
+            const coinSize = ball.radius * 2.2;
+            plinkoCtx.font = `${coinSize}px serif`;
+            plinkoCtx.textAlign = 'center';
+            plinkoCtx.textBaseline = 'middle';
+            plinkoCtx.fillText('🪙', ball.x, ball.y);
+        } else {
+            plinkoCtx.fillStyle = (state.winStreak < 5 && ts.ballColor) ? ts.ballColor : ball.color;
+            plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+            plinkoCtx.lineWidth = 1;
+            plinkoCtx.beginPath();
+            plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            plinkoCtx.fill();
+            plinkoCtx.stroke();
+        }
+
+        plinkoCtx.shadowBlur = 0;
     });
 
     // 6. FX (Confetti & Text - Nananatiling flat)
@@ -1458,9 +2123,10 @@ function draw() {
         plinkoCtx.shadowBlur = 5; // Reduced drastically
         plinkoCtx.shadowColor = '#f9d71c';
 
-        plinkoCtx.font = '900 40px sans-serif'; plinkoCtx.textAlign = 'center';
+        const fontSize = effect.combo ? 52 : 40;
+        plinkoCtx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`; plinkoCtx.textAlign = 'center';
         plinkoCtx.fillText(effect.text, 0, 0); plinkoCtx.restore();
-        effect.opacity -= 0.02; effect.rotation += 0.05; effect.y -= 1;
+        effect.opacity -= effect.combo ? 0.015 : 0.02; effect.rotation += 0.05; effect.y -= 1;
         if (effect.opacity <= 0) winEffects.splice(i, 1);
     }
 
@@ -1476,9 +2142,9 @@ function draw() {
 function openShop() {
     const overlay = document.getElementById('shopOverlay');
     const box = document.getElementById('shopBox');
-    const shopCoins = document.getElementById('shopCoins');
+    const shopStars = document.getElementById('shopStars');
 
-    if (shopCoins) shopCoins.textContent = `🪙 ${state.coins} Coins`;
+    if (shopStars) shopStars.textContent = `⭐ ${state.stars.toFixed(2)}`;
 
     // Render powerups
     const powerupsEl = document.getElementById('powerupsShop');
@@ -1487,11 +2153,11 @@ function openShop() {
             <div class="shop-item">
                 <div class="shop-item-header">
                     <span class="shop-item-name">${item.name}</span>
-                    <span class="shop-item-cost">🪙 ${item.cost}</span>
+                    <span class="shop-item-cost">⭐ ${item.cost}</span>
                 </div>
                 <p class="shop-item-desc">${item.description}</p>
-                <button class="buy-btn" data-item="${item.id}" ${state.coins < item.cost ? 'disabled' : ''}>
-                    ${state.coins < item.cost ? 'Not Enough Coins' : 'Buy'}
+                <button class="buy-btn" data-item="${item.id}" ${state.stars < item.cost ? 'disabled' : ''}>
+                    ${state.stars < item.cost ? 'Not Enough Stars' : 'Buy'}
                 </button>
             </div>
         `).join('');
@@ -1501,7 +2167,58 @@ function openShop() {
             btn.addEventListener('click', () => {
                 const itemId = btn.dataset.item;
                 activatePowerup(itemId);
-                openShop(); // Refresh
+                btn.classList.add('purchased-flash');
+                setTimeout(() => {
+                    btn.classList.remove('purchased-flash');
+                    openShop(); // Refresh
+                }, 400);
+            });
+        });
+    }
+
+    // Render themes
+    const themesEl = document.getElementById('themesShop');
+    if (themesEl) {
+        const allThemes = [
+            { id: 'default', name: '🎮 Default', description: 'The original arcade look', cost: 0 },
+            ...SHOP_ITEMS.themes
+        ];
+        themesEl.innerHTML = allThemes.map(item => {
+            const owned = item.cost === 0 || state.unlockedItems.includes(item.id);
+            const active = state.currentTheme === item.id;
+            return `
+                <div class="shop-item ${active ? 'theme-active' : ''}">
+                    <div class="shop-item-header">
+                        <span class="shop-item-name">${item.name}</span>
+                        <span class="shop-item-cost">${owned ? (active ? '● Active' : '✓ Owned') : `⭐ ${item.cost}`}</span>
+                    </div>
+                    <p class="shop-item-desc">${item.description}</p>
+                    ${owned
+                        ? `<button class="buy-btn" data-theme="${item.id}" ${active ? 'disabled' : ''}>${active ? 'Applied' : 'Apply'}</button>`
+                        : `<button class="buy-btn" data-buy-theme="${item.id}" ${state.stars < item.cost ? 'disabled' : ''}>${state.stars < item.cost ? 'Not Enough Stars' : 'Buy'}</button>`
+                    }
+                </div>`;
+        }).join('');
+
+        themesEl.querySelectorAll('[data-buy-theme]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.buyTheme;
+                const item = SHOP_ITEMS.themes.find(t => t.id === id);
+                if (!item || state.stars < item.cost) return;
+                state.stars -= item.cost;
+                state.unlockedItems.push(id);
+                applyTheme(id);
+                saveState();
+                btn.classList.add('purchased-flash');
+                setTimeout(() => { btn.classList.remove('purchased-flash'); openShop(); }, 400);
+            });
+        });
+
+        themesEl.querySelectorAll('[data-theme]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyTheme(btn.dataset.theme);
+                saveState();
+                openShop();
             });
         });
     }
@@ -1533,7 +2250,7 @@ function openAchievements() {
                     <div class="achievement-details">
                         <div class="achievement-name">${ach.name}</div>
                         <div class="achievement-desc">${ach.description}</div>
-                        <div class="achievement-reward">Reward: ₱${ach.reward} + 🪙${ach.reward/2}</div>
+                        <div class="achievement-reward">Reward: ⭐${ach.reward}</div>
                     </div>
                     <div class="achievement-status">
                         ${unlocked ? '✅ Unlocked' : '🔒 Locked'}
@@ -1556,7 +2273,7 @@ function closeAchievements() {
 
 // ============================================================================
 function initHUD() {
-    ['petsToggleHeader', 'statsToggleHeader'].forEach(id => {
+    ['petsToggleHeader', 'statsToggleHeader', 'challengesToggleHeader'].forEach(id => {
         const header = document.getElementById(id);
         if (!header) return;
         const target = header.nextElementSibling;
@@ -1638,7 +2355,7 @@ function initHUD() {
     const maxBetBtn = document.getElementById('maxBet');
     if (maxBetBtn) {
         maxBetBtn.addEventListener('click', () => {
-            state.bet = Math.max(CONFIG.MIN_BET, state.balance);
+            state.bet = Math.max(CONFIG.MIN_BET, state.stars);
             if (betInput) betInput.value = state.bet.toFixed(2);
             playSound(maxBetSound);
             updateDisplay();
@@ -1650,12 +2367,17 @@ function initHUD() {
         CONFIG.PRESETS.forEach(amount => {
             const btn = document.createElement('button');
             btn.className = 'preset-btn';
-            btn.textContent = `₱${amount}`;
+            btn.textContent = `⭐${amount}`;
             btn.addEventListener('click', () => {
-                if (amount <= state.balance) {
+                if (amount <= state.stars) {
                     state.bet = amount;
                     if (betInput) betInput.value = state.bet.toFixed(2);
                     updateDisplay();
+                } else {
+                    btn.classList.remove('shake');
+                    void btn.offsetWidth; // force reflow to restart animation
+                    btn.classList.add('shake');
+                    setTimeout(() => btn.classList.remove('shake'), 300);
                 }
             });
             presetsEl.appendChild(btn);
@@ -1685,13 +2407,36 @@ function initHUD() {
     const resetBtn = document.getElementById('resetBalance');
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
-            if (await showConfirm('Reset balance and statistics?')) {
-                state.balance = CONFIG.INITIAL_BALANCE;
-                state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
-                state.winStreak = 0;
+            const isGameOver = state.isGameOver;
+            const msg = isGameOver
+                ? 'You lost everything. This will wipe ALL progress — level, achievements, owned items, everything. Start fresh?'
+                : 'Reset balance and statistics?';
+            if (await showConfirm(msg)) {
+                if (isGameOver) {
+                    // Full wipe — losing has consequences
+                    state.stars = CONFIG.INITIAL_STARS;
+                    state.level = 1;
+                    state.xp = 0;
+                    state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                    state.winStreak = 0;
+                    state.achievements = [];
+                    state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
+                    state.activePowerups = [];
+                    state.unlockedItems = [];
+                    state.biggestBet = 0;
+                    state.jackpotHit = false;
+                    state.comebackAchieved = false;
+                    state.currentTheme = 'default';
+                    applyTheme('default');
+                } else {
+                    state.stars = CONFIG.INITIAL_STARS;
+                    state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                    state.winStreak = 0;
+                }
                 saveState();
                 updateDisplay();
                 updateStatsDisplay();
+                updateLevelDisplay();
                 hideGameOver();
             }
         });
@@ -1701,7 +2446,7 @@ function initHUD() {
     if (zeroBtn) {
         zeroBtn.addEventListener('click', async () => {
             if (await showConfirm('Are you sure? Your balance will be ZERO and you will lose immediately! 😱')) {
-                state.balance = 0;
+                state.stars = 0;
                 saveState();
                 updateDisplay();
                 showGameOver();
@@ -1740,8 +2485,8 @@ function initHUD() {
     document.addEventListener('click', startMusic);
 
     const handlePlay = async () => {
-        if (state.balance >= state.bet) {
-            state.balance -= state.bet;
+        if (state.stars >= state.bet) {
+            state.stars -= state.bet;
 
             // Track biggest bet
             if (state.bet > state.biggestBet) {
@@ -1805,7 +2550,7 @@ function initHUD() {
         }
         const speed = CONFIG.AUTOPLAY_SPEEDS[state.autoPlaySpeed];
         state.autoPlayInterval = setInterval(async () => {
-            if (state.balance >= state.bet) handlePlay();
+            if (state.stars >= state.bet) handlePlay();
             else {
                 stopAutoPlay();
                 await showAlert('Auto Play stopped because you ran out of funds. Reset now! 💸');
@@ -1878,11 +2623,11 @@ function initHUD() {
             const net = totalWon - totalWagered;
 
             rCtx.fillText(`GAMES PLAYED:      ${gamesPlayed}`, 50, 260);
-            rCtx.fillText(`TOTAL WAGERED:     ₱${totalWagered.toFixed(2)}`, 50, 285);
-            rCtx.fillText(`TOTAL WON:         ₱${totalWon.toFixed(2)}`, 50, 310);
-            rCtx.fillText(`NET PROFIT:        ₱${net.toFixed(2)}`, 50, 335);
-            rCtx.fillText(`BIGGEST WIN:       ₱${biggestWin.toFixed(2)}`, 50, 360);
-            rCtx.fillText(`BEST MULTIPLIER:   ${biggestMultiplier}x`, 50, 385);
+            rCtx.fillText(`TOTAL WAGERED:     ⭐${totalWagered.toFixed(2)}`, 50, 285);
+            rCtx.fillText(`TOTAL WON:         ⭐${totalWon.toFixed(2)}`, 50, 310);
+            rCtx.fillText(`NET PROFIT:        ⭐${net.toFixed(2)}`, 50, 335);
+            rCtx.fillText(`BIGGEST WIN:       ⭐${biggestWin.toFixed(2)}`, 50, 360);
+            rCtx.fillText(`BEST MULTIPLIER:   ${parseFloat(biggestMultiplier.toFixed(2))}x`, 50, 385);
 
             rCtx.textAlign = 'center';
             rCtx.fillText('--------------------------', receiptCanvas.width / 2, 415);
@@ -1932,18 +2677,18 @@ function initHUD() {
                 // Bet (Gray)
                 rCtx.textAlign = 'left';
                 rCtx.fillStyle = '#aaa';
-                rCtx.fillText(`₱${entry.bet.toFixed(2)}`, hX + 25, entryY);
+                rCtx.fillText(`⭐${entry.bet.toFixed(2)}`, hX + 25, entryY);
                 
                 // Multiplier (Gold)
                 rCtx.textAlign = 'center';
                 rCtx.fillStyle = '#d4af37';
                 rCtx.font = 'bold 12px sans-serif';
-                rCtx.fillText(`${entry.multi}x`, hX + hW / 2, entryY);
+                rCtx.fillText(`${parseFloat(entry.multi.toFixed(2))}x`, hX + hW / 2, entryY);
                 
                 // Profit (Green/Red)
                 rCtx.textAlign = 'right';
                 rCtx.fillStyle = entry.multi >= 1 ? '#4caf50' : '#f44336';
-                rCtx.fillText(`₱${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
+                rCtx.fillText(`⭐${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
             });
 
             // 5. Footer
@@ -2018,6 +2763,9 @@ function initPets() {
 
 window.onload = () => {
     initHUD();
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    applyTheme(state.currentTheme);
     resizeCanvases();
     setTimeout(resizeCanvases, 100);
     initPets();
@@ -2025,7 +2773,6 @@ window.onload = () => {
     updateDisplay();
     updateStatsDisplay();
     updateLevelDisplay();
-    updateCoinDisplay();
     checkAchievements(); // Check for initial achievements
 
     let resizeTimeout;
