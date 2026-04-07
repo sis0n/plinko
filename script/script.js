@@ -60,13 +60,13 @@ const PET_CONFIGS = {
     'Renz': { walk: 8, celebrate: 5 }
 };
 const PET_ASSETS = {
-    alwyn: { displayName: 'Alwyn', default: 'Alwyn.png', pink: 'Alwyn_pink.jpg' },
+    alwyn: { displayName: 'Alwyn', default: 'Alwyn.png', pink: 'Alwyn_pink.png' },
     Asher: { displayName: 'Asher', default: 'Asher.png', pink: 'Asher_pink.png' },
-    beto: { displayName: 'Beto', default: 'Beto.png' },
-    Colmo: { displayName: 'Colmo', default: 'Colmo.png', pink: 'Colmo_pink.png' },
-    gab: { displayName: 'Gab', default: 'Gab.png', pink: 'Ofiangga_pink.png' },
-    kyle: { displayName: 'Kyle', default: 'kyle.png', pink: 'Kyle_madriaga.png' },
-    Renz: { displayName: 'Renz', default: 'Renz.png', pink: 'Renz_pink.png' }
+    beto:  { displayName: 'Beto',  default: 'Beto.png',  pink: 'Beto_pink.webp' },
+    Colmo: { displayName: 'Colmo', default: 'Colmo.png', pink: 'Colmo_pink.webp' },
+    gab:   { displayName: 'Gab',   default: 'Gab.png',   pink: 'Gab_pink.webp' },
+    kyle:  { displayName: 'Kyle',  default: 'kyle.png',  pink: 'Kyle_pink.webp' },
+    Renz:  { displayName: 'Renz',  default: 'Renz.png',  pink: 'Renz_pink.webp' }
 };
 const PET_SKINS = PET_NAMES
     .filter(name => PET_ASSETS[name]?.pink)
