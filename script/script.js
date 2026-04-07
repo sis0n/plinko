@@ -59,6 +59,25 @@ const PET_CONFIGS = {
     'kyle': { walk: 8, celebrate: 6 },
     'Renz': { walk: 8, celebrate: 5 }
 };
+const PET_ASSETS = {
+    alwyn: { displayName: 'Alwyn', default: 'Alwyn.png', pink: 'Alwyn_pink.png' },
+    Asher: { displayName: 'Asher', default: 'Asher.png', pink: 'Asher_pink.png' },
+    beto:  { displayName: 'Beto',  default: 'Beto.png',  pink: 'Beto_pink.webp' },
+    Colmo: { displayName: 'Colmo', default: 'Colmo.png', pink: 'Colmo_pink.webp' },
+    gab:   { displayName: 'Gab',   default: 'Gab.png',   pink: 'Gab_pink.webp' },
+    kyle:  { displayName: 'Kyle',  default: 'kyle.png',  pink: 'Kyle_pink.webp' },
+    Renz:  { displayName: 'Renz',  default: 'Renz.png',  pink: 'Renz_pink.webp' }
+};
+const PET_SKINS = PET_NAMES
+    .filter(name => PET_ASSETS[name]?.pink)
+    .map((name, index) => ({
+        id: `${name}_pink`,
+        petName: name,
+        variant: 'pink',
+        name: `${PET_ASSETS[name].displayName} Pink`,
+        description: `Pink variant for ${PET_ASSETS[name].displayName}`,
+        cost: 900 + (index * 100)
+    }));
 
 // ============================================================================
 // GAMIFICATION DATA
@@ -328,6 +347,8 @@ let state = {
     jackpotHit: Storage.get('jackpotHit', false),
     comebackAchieved: Storage.get('comebackAchieved', false),
     ownedPets: Storage.get('ownedPets', []),
+    unlockedPetSkins: Storage.get('unlockedPetSkins', []),
+    activePetSkins: Storage.get('activePetSkins', {}),
     currentTheme: Storage.get('currentTheme', 'default'),
     lastSpin: Storage.get('lastSpin', null),
     prestige: Storage.get('prestige', 0),
@@ -355,11 +376,19 @@ function saveState() {
     Storage.set('jackpotHit', state.jackpotHit);
     Storage.set('comebackAchieved', state.comebackAchieved);
     Storage.set('ownedPets', state.ownedPets);
+    Storage.set('unlockedPetSkins', state.unlockedPetSkins);
+    Storage.set('activePetSkins', state.activePetSkins);
     Storage.set('currentTheme', state.currentTheme);
     Storage.set('lastSpin', state.lastSpin);
     Storage.set('prestige', state.prestige);
     Storage.set('jackpotMeter', state.jackpotMeter);
     Storage.set('activeSkin', state.activeSkin);
+}
+
+function getPetSpriteFile(name, variant = 'default') {
+    const pet = PET_ASSETS[name];
+    if (!pet) return '';
+    return pet[variant] || pet.default;
 }
 
 // ============================================================================
@@ -568,14 +597,8 @@ class Pet {
         this.name = name;
         this.config = PET_CONFIGS[name] || { walk: 10, celebrate: 10 };
         this.image = new Image();
-        const fileName = name === 'alwyn' ? 'Alwyn' :
-            name === 'beto' ? 'Beto' :
-                name === 'gab' ? 'Gab' :
-                    name === 'kyle' ? 'kyle' :
-                        name === 'Renz' ? 'Renz' :
-                            name === 'Colmo' ? 'Colmo' :
-                                name === 'Asher' ? 'Asher' : name;
-        this.image.src = `Sprites/LABOBO/${fileName}.png`;
+        this.currentVariant = null;
+        this.refreshSprite();
         this.size = CONFIG.PET_SIZE * 1.5;
         this.x = Math.random() * (petsCanvas.width - this.size);
         this.y = petsCanvas.height - this.size - 30;
@@ -603,7 +626,16 @@ class Pet {
         this.pendingBubble = null; // { text, countdown, duration }
     }
 
+    refreshSprite() {
+        const desiredVariant = state.activePetSkins[this.name] || 'default';
+        if (desiredVariant === this.currentVariant) return;
+        this.currentVariant = desiredVariant;
+        const fileName = getPetSpriteFile(this.name, desiredVariant);
+        if (fileName) this.image.src = `Sprites/LABOBO/${fileName}`;
+    }
+
     update(otherPets = []) {
+        this.refreshSprite();
         const maxFrames = 5;
         const now = Date.now();
         const fps = this.state === 'jackpot' ? 200 : 150;
@@ -2797,6 +2829,61 @@ function openShop() {
                 setTimeout(() => {
                     btn.classList.remove('purchased-flash');
                     openShop(); // Refresh
+                }, 400);
+            });
+        });
+    }
+
+    // Render pet skins
+    const petsEl = document.getElementById('petsShop');
+    if (petsEl) {
+        petsEl.classList.remove('locked');
+        petsEl.innerHTML = PET_SKINS.map(item => {
+            const owned = state.unlockedPetSkins.includes(item.id);
+            const active = state.activePetSkins[item.petName] === item.variant;
+            const displayName = PET_ASSETS[item.petName]?.displayName || item.petName;
+            const actionLabel = !owned
+                ? (state.stars < item.cost ? 'Not Enough Stars' : 'Buy')
+                : (active ? 'Use Default' : 'Apply');
+
+            return `
+                <div class="shop-item ${active ? 'theme-active' : ''}">
+                    <div class="shop-item-header">
+                        <span class="shop-item-name">${item.name}</span>
+                        <span class="shop-item-cost">${owned ? (active ? '● Active' : '✓ Owned') : `⭐ ${item.cost}`}</span>
+                    </div>
+                    <p class="shop-item-desc">${item.description}<br><span style="opacity: 0.75;">Applies to ${displayName}</span></p>
+                    <button class="buy-btn" data-pet-skin="${item.id}" ${!owned && state.stars < item.cost ? 'disabled' : ''}>${actionLabel}</button>
+                </div>
+            `;
+        }).join('');
+
+        petsEl.querySelectorAll('[data-pet-skin]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = PET_SKINS.find(skin => skin.id === btn.dataset.petSkin);
+                if (!item) return;
+
+                const owned = state.unlockedPetSkins.includes(item.id);
+                const active = state.activePetSkins[item.petName] === item.variant;
+
+                if (!owned) {
+                    if (state.stars < item.cost) return;
+                    state.stars -= item.cost;
+                    state.unlockedPetSkins.push(item.id);
+                }
+
+                if (active) {
+                    delete state.activePetSkins[item.petName];
+                } else {
+                    state.activePetSkins[item.petName] = item.variant;
+                }
+
+                saveState();
+                updateDisplay();
+                btn.classList.add('purchased-flash');
+                setTimeout(() => {
+                    btn.classList.remove('purchased-flash');
+                    openShop();
                 }, 400);
             });
         });
