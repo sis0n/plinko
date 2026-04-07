@@ -23,7 +23,7 @@
 // ============================================================================
 const CONFIG = {
     MIN_BET: 1.00,
-    INITIAL_BALANCE: 1000.00,
+    INITIAL_STARS: 100,
     MAX_HISTORY: 20,
     GRAVITY: 0.2,
     FRICTION: 0.99,
@@ -39,10 +39,14 @@ const CONFIG = {
     BORDER_LIGHT_COUNT: 24, // Dami ng bumbilya sa bawat gilid
 
     // Gamification
-    DAILY_REWARD: 100.00,
+    DAILY_REWARD: 150,
     XP_PER_GAME: 10,
     XP_PER_WIN: 25,
-    XP_PER_LEVEL: 1000
+    XP_PER_LEVEL: 1000,
+    PRESTIGE_LEVEL: 20,
+    JACKPOT_METER_MAX: 100,
+    SLOWMO_THRESHOLD: 25,
+    SLOWMO_FRAMES: 90
 };
 
 const PET_NAMES = ['alwyn', 'Asher', 'beto', 'Colmo', 'gab', 'kyle', 'Renz'];
@@ -59,6 +63,49 @@ const PET_CONFIGS = {
 // ============================================================================
 // GAMIFICATION DATA
 // ============================================================================
+const BALL_SKINS = [
+    { id: 'default',     name: '⚪ Default',     description: 'Bet-based color',              cost: 0    },
+    { id: 'flame',       name: '🔥 Flame',       description: 'Orange fire glow + hot trail', cost: 800  },
+    { id: 'rainbow',     name: '🌈 Rainbow',     description: 'Hue cycles every frame',       cost: 1200 },
+    { id: 'ghost',       name: '👻 Ghost',       description: 'Translucent white phantom',    cost: 600  },
+    { id: 'ice',         name: '❄️ Ice',         description: 'Frozen cyan crystal',          cost: 700  },
+    { id: 'dark_matter', name: '⚫ Dark Matter', description: 'Black hole with purple aura',  cost: 1500 },
+];
+
+const SPIN_PRIZES = [
+    { label: '5 ⭐',      type: 'stars',   value: 5,             color: '#374151' },
+    { label: '10 ⭐',     type: 'stars',   value: 10,            color: '#1e3a5f' },
+    { label: '20 ⭐',     type: 'stars',   value: 20,            color: '#7c2d12' },
+    { label: '🍀 Charm',  type: 'powerup', value: 'lucky_charm', color: '#14532d' },
+    { label: '35 ⭐',     type: 'stars',   value: 35,            color: '#4c1d95' },
+    { label: '50 ⭐',     type: 'stars',   value: 50,            color: '#7f1d1d' },
+    { label: '🛡️ Shield', type: 'powerup', value: 'shield',      color: '#1e3a5f' },
+    { label: '100 ⭐',    type: 'stars',   value: 100,           color: '#713f12' },
+];
+
+const PET_DIALOGUES = {
+    greet: [
+        ['Hey!',        'Sup!'],
+        ['Yo!',         'Wassup'],
+        ['Hiii~',       'Hello!!'],
+        ['Oi!',         'Bro!!'],
+        ['Howdy',       'Hey hey'],
+        ['Miss me?',    'Not really'],
+        ['Long time!',  'Yeah...'],
+        ['Looking good','You too!'],
+        ['Wanna bet?',  'Always.'],
+        ['Nice win!',   'Thanks!!'],
+        ['Let\'s go!',  'Let\'s GO!'],
+        ['Poggers',     'Based'],
+    ],
+    chase:  ['Wait up!', 'Catch me!', 'Hey!!', 'Come here!', 'Got ya!'],
+    chased: ['Ahh!!', 'Noooo!', 'Run!!', 'Oh no!'],
+    jackpot:['WOOO!!', 'LET\'S GO!', 'YESSS!', 'JACKPOT!!', 'NO WAY!!', 'SLAY!!!', '🎉🎉🎉', 'LESGOOO'],
+    win:    ['Nice!', 'Profit!', 'GG!', 'EZ money', 'Yooo!', 'Cha-ching!'],
+    sad:    ['Oof...', 'Bruh.', 'Rip.', 'L + ratio', 'Not again', 'Unlucky', '*cries*', 'Pain.'],
+    idle:   ['...', 'hmm', '*yawn*', 'la la la', 'boring...', '*stretches*', 'ok.', 'heh', '*hums*', 'anyone?'],
+};
+
 const SHOP_ITEMS = {
     powerups: [
         { id: 'lucky_charm', name: '🍀 Lucky Charm', description: '+10% to all multipliers (10 plays)', cost: 250, duration: 10 },
@@ -74,25 +121,30 @@ const SHOP_ITEMS = {
     ],
     themes: [
         { id: 'neon', name: '🌃 Neon Nights', description: 'Cyberpunk neon theme', cost: 1500, unlocked: false },
-        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false }
+        { id: 'gold_rush', name: '💰 Gold Rush', description: 'Luxurious golden theme', cost: 2500, unlocked: false },
+        { id: 'galaxy', name: '🌌 Galaxy', description: 'Deep space with shooting stars', cost: 3000, unlocked: false },
+        { id: 'deep_sea', name: '🌊 Deep Sea', description: 'Bioluminescent ocean depths', cost: 2000, unlocked: false },
+        { id: 'inferno', name: '🔥 Inferno', description: 'Lava cracks and rising embers', cost: 2500, unlocked: false },
+        { id: 'cherry_blossom', name: '🌸 Cherry Blossom', description: 'Falling petals in the night', cost: 1800, unlocked: false },
+        { id: 'retro_arcade', name: '👾 Retro Arcade', description: 'CRT scanlines and pixel grid', cost: 2200, unlocked: false }
     ]
 };
 
 const ACHIEVEMENTS = [
     { id: 'first_win', name: 'First Blood', description: 'Win your first game', reward: 100, icon: '🎯', condition: () => state.stats.gamesPlayed > 0 && state.stats.totalWon > 0 },
-    { id: 'big_spender', name: 'High Roller', description: 'Bet ₱100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
+    { id: 'big_spender', name: 'High Roller', description: 'Bet ⭐100 in a single play', reward: 200, icon: '💸', condition: () => state.biggestBet >= 100 },
     { id: 'streak_5', name: 'On Fire!', description: 'Win 5 games in a row', reward: 300, icon: '🔥', condition: () => state.winStreak >= 5 },
     { id: 'streak_10', name: 'Unstoppable', description: 'Win 10 games in a row', reward: 1000, icon: '⚡', condition: () => state.stats.longestStreak >= 10 },
-    { id: 'millionaire', name: 'Millionaire', description: 'Reach ₱10,000 balance', reward: 500, icon: '💎', condition: () => state.balance >= 10000 },
+    { id: 'millionaire', name: 'Millionaire', description: 'Reach ⭐10,000', reward: 500, icon: '💎', condition: () => state.stars >= 10000 },
     { id: 'games_100', name: 'Century Club', description: 'Play 100 games', reward: 250, icon: '💯', condition: () => state.stats.gamesPlayed >= 100 },
     { id: 'jackpot', name: 'Jackpot Master', description: 'Hit the highest multiplier', reward: 750, icon: '🎰', condition: () => state.jackpotHit },
-    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ₱0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
+    { id: 'comeback', name: 'Phoenix Rising', description: 'Win after reaching ⭐0', reward: 500, icon: '🔄', condition: () => state.comebackAchieved }
 ];
 
 const DAILY_CHALLENGES = [
     { id: 'daily_wins', name: 'Win 10 games', reward: 150, target: 10, icon: '🎲' },
     { id: 'daily_streak', name: 'Get a 3-win streak', reward: 200, target: 3, icon: '🔥' },
-    { id: 'daily_wagered', name: 'Wager ₱500 total', reward: 100, target: 500, icon: '💰' }
+    { id: 'daily_wagered', name: 'Wager ⭐500 total', reward: 100, target: 500, icon: '💰' }
 ];
 
 const TUTORIAL_STEPS = [
@@ -191,6 +243,21 @@ function showAlert(message) {
     return showCustomModal('Warning', message, false, 'Okay 👌', '');
 }
 
+function showToast(html) {
+    const existing = document.querySelectorAll('.achievement-toast');
+    const offset = existing.length * 80;
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.style.top = `${20 + offset}px`;
+    toast.innerHTML = html;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
 function showConfirm(message) {
     return showCustomModal('Confirmation', message, true, 'Yes ✅', 'No ❌');
 }
@@ -220,8 +287,15 @@ function playSound(audio) {
     audio.play().catch(() => { });
 }
 
+// Migrate old balance+coins to unified stars on first load
+const _oldBalance = Storage.get('balance', null);
+const _oldCoins   = Storage.get('coins', null);
+const _migratedStars = (_oldBalance !== null || _oldCoins !== null)
+    ? ((_oldBalance || 0) + (_oldCoins || 0))
+    : null;
+
 let state = {
-    balance: Storage.get('balance', CONFIG.INITIAL_BALANCE),
+    stars: Storage.get('stars', _migratedStars ?? CONFIG.INITIAL_STARS),
     bet: 10.00,
     lines: 8,
     risk: 'normal',
@@ -245,7 +319,6 @@ let state = {
     // Gamification
     level: Storage.get('level', 1),
     xp: Storage.get('xp', 0),
-    coins: Storage.get('coins', 0), // Separate currency for shop
     activePowerups: Storage.get('activePowerups', []),
     unlockedItems: Storage.get('unlockedItems', []),
     achievements: Storage.get('achievements', []),
@@ -253,17 +326,26 @@ let state = {
     dailyProgress: Storage.get('dailyProgress', { wins: 0, streak: 0, wagered: 0 }),
     biggestBet: Storage.get('biggestBet', 0),
     jackpotHit: Storage.get('jackpotHit', false),
-    comebackAchieved: Storage.get('comebackAchieved', false)
+    comebackAchieved: Storage.get('comebackAchieved', false),
+    ownedPets: Storage.get('ownedPets', []),
+    currentTheme: Storage.get('currentTheme', 'default'),
+    lastSpin: Storage.get('lastSpin', null),
+    prestige: Storage.get('prestige', 0),
+    jackpotMeter: Storage.get('jackpotMeter', 0),
+    activeSkin: Storage.get('activeSkin', 'default'),
+    betStrategy: 'flat',
+    baseBet: 10,
+    slowMo: 0,
+    balanceHistory: []
 };
 
 function saveState() {
-    Storage.set('balance', state.balance);
+    Storage.set('stars', state.stars);
     Storage.set('stats', state.stats);
     Storage.set('musicMuted', state.isMusicMuted);
     Storage.set('sfxMuted', state.isSfxMuted);
     Storage.set('level', state.level);
     Storage.set('xp', state.xp);
-    Storage.set('coins', state.coins);
     Storage.set('activePowerups', state.activePowerups);
     Storage.set('unlockedItems', state.unlockedItems);
     Storage.set('achievements', state.achievements);
@@ -272,6 +354,12 @@ function saveState() {
     Storage.set('biggestBet', state.biggestBet);
     Storage.set('jackpotHit', state.jackpotHit);
     Storage.set('comebackAchieved', state.comebackAchieved);
+    Storage.set('ownedPets', state.ownedPets);
+    Storage.set('currentTheme', state.currentTheme);
+    Storage.set('lastSpin', state.lastSpin);
+    Storage.set('prestige', state.prestige);
+    Storage.set('jackpotMeter', state.jackpotMeter);
+    Storage.set('activeSkin', state.activeSkin);
 }
 
 // ============================================================================
@@ -283,6 +371,8 @@ let slots = [];
 let pets = [];
 let winEffects = [];
 let confetti = [];
+let fireParticles = [];
+let pegRipples = [];
 let slotHeat = [];
 let slotPulses = [];
 let cachedBgGradient = null;
@@ -306,6 +396,8 @@ const plinkoCanvas = document.getElementById('plinkoCanvas');
 const plinkoCtx = plinkoCanvas.getContext('2d');
 const petsCanvas = document.getElementById('petsCanvas');
 const petsCtx = petsCanvas.getContext('2d');
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
 const balanceEl = document.getElementById('userBalance');
 const betInput = document.getElementById('betAmount');
 const playBtn = document.getElementById('playBtn');
@@ -486,45 +578,190 @@ class Pet {
         this.image.src = `Sprites/LABOBO/${fileName}.png`;
         this.size = CONFIG.PET_SIZE * 1.5;
         this.x = Math.random() * (petsCanvas.width - this.size);
-        this.y = petsCanvas.height - this.size - 30; // Adjusted for 2.5D stage
+        this.y = petsCanvas.height - this.size - 30;
         this.vx = (Math.random() - 0.5) * 1.5;
         this.frame = 0;
         this.state = 'happy';
         this.timer = 0;
         this.direction = 1;
         this.lastFrameUpdate = Date.now();
+        // Liveliness additions
+        this.bobPhase = Math.random() * Math.PI * 2;
+        this.hopTimer = 0;
+        this.hopPhase = 0;
+        this.personalityTimer = Math.floor(Math.random() * 180);
+        this.baseSpeed = 0.7 + Math.random() * 1.6;
+        this.squashY = 1;
+        this.tilt = 0;
+        // Interaction additions
+        this.greetTimer = 0;
+        this.greetCooldown = Math.floor(Math.random() * 80);
+        this.chaseTarget = null;
+        this.chaseTimer = 0;
+        // Speech bubble
+        this.bubble = null;        // { text, opacity, timer }
+        this.pendingBubble = null; // { text, countdown, duration }
     }
 
-    update() {
+    update(otherPets = []) {
         const maxFrames = 5;
         const now = Date.now();
-        // Pinabagal ang frames kapag jumping (mula 100 naging 200ms)
         const fps = this.state === 'jackpot' ? 200 : 150;
-
         if (now - this.lastFrameUpdate > fps) {
             this.frame = (this.frame + 1) % maxFrames;
             this.lastFrameUpdate = now;
         }
 
+        this.tickBubble();
+        this.bobPhase += 0.07;
         let jumpOffset = 0;
 
         if (this.state === 'jackpot') {
             this.timer--;
-            // Smooth Sine Wave Bounce pataas
             jumpOffset = -Math.abs(Math.sin(this.timer * 0.15)) * 25;
-
             if (this.timer <= 0) {
                 this.state = 'happy';
-                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vx = (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed;
             }
+
+        } else if (this.state === 'greeting') {
+            this.greetTimer--;
+            // Excited faster bob + head wobble while chatting
+            jumpOffset = Math.sin(this.bobPhase * 2.2) * 4;
+            this.tilt = Math.sin(this.bobPhase * 2.2) * 0.045;
+            if (this.greetTimer <= 0) {
+                this.state = 'happy';
+                this.vx = -this.direction * this.baseSpeed; // walk away
+                this.greetCooldown = 220 + Math.floor(Math.random() * 120);
+                this.tilt = 0;
+            }
+
+        } else if (this.state === 'chasing') {
+            this.chaseTimer--;
+            const target = this.chaseTarget;
+            if (target && state.activePets.has(target.name)) {
+                const dx = target.x - this.x;
+                if (Math.abs(dx) < this.size * 0.85) {
+                    // Caught — trigger greeting on both
+                    const greetDur = 90 + Math.floor(Math.random() * 60);
+                    const pair = PET_DIALOGUES.greet[Math.floor(Math.random() * PET_DIALOGUES.greet.length)];
+                    this.state = 'greeting';
+                    this.greetTimer = greetDur;
+                    this.greetCooldown = 220;
+                    this.direction = dx >= 0 ? 1 : -1;
+                    this.vx = 0;
+                    this.scheduleBubble(pair[0], 6, 72);
+                    if (target.state === 'happy' || target.state === 'sad' || target.state === 'chasing') {
+                        target.state = 'greeting';
+                        target.greetTimer = greetDur;
+                        target.greetCooldown = 220;
+                        target.direction = -this.direction;
+                        target.vx = 0;
+                        target.scheduleBubble(pair[1], 52, 72);
+                    }
+                } else {
+                    this.vx = (dx > 0 ? 1 : -1) * this.baseSpeed * 2.2;
+                    this.direction = dx > 0 ? 1 : -1;
+                    this.x += this.vx;
+                    if (this.x < 0) { this.x = 0; }
+                    else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; }
+                }
+            } else {
+                this.state = 'happy';
+                this.chaseTarget = null;
+            }
+            if (this.chaseTimer <= 0) {
+                this.state = 'happy';
+                this.chaseTarget = null;
+                this.vx = (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed;
+            }
+            jumpOffset = Math.sin(this.bobPhase) * 1.5;
+            this.tilt = this.vx * 0.03;
+
         } else {
+            // happy / sad — normal walk with personality
+            if (this.greetCooldown > 0) this.greetCooldown--;
+
+            this.personalityTimer--;
+            if (this.personalityTimer <= 0) {
+                this.personalityTimer = 90 + Math.floor(Math.random() * 240);
+                const roll = Math.random();
+                if (roll < 0.2) {
+                    if (this.hopTimer <= 0) { this.hopTimer = 30; this.hopPhase = 0; }
+                } else if (roll < 0.38) {
+                    this.vx = (this.vx >= 0 ? 1 : -1) * (this.baseSpeed * (1.5 + Math.random()));
+                } else if (roll < 0.52) {
+                    this.vx = 0;
+                    this.personalityTimer = 30 + Math.floor(Math.random() * 40);
+                } else if (roll < 0.62 && otherPets.length > 0 && this.greetCooldown <= 0) {
+                    // Chase a random other pet
+                    const candidates = otherPets.filter(p => p.state === 'happy' || p.state === 'sad');
+                    if (candidates.length > 0) {
+                        this.state = 'chasing';
+                        this.chaseTarget = candidates[Math.floor(Math.random() * candidates.length)];
+                        this.chaseTimer = 220;
+                        const cl = PET_DIALOGUES.chase;
+                        this.scheduleBubble(cl[Math.floor(Math.random() * cl.length)], 4, 55);
+                        const tl = PET_DIALOGUES.chased;
+                        this.chaseTarget.scheduleBubble(tl[Math.floor(Math.random() * tl.length)], 18, 55);
+                    }
+                } else if (roll < 0.72 && !this.bubble && !this.pendingBubble) {
+                    // Idle mumble
+                    const il = PET_DIALOGUES.idle;
+                    this.scheduleBubble(il[Math.floor(Math.random() * il.length)], 0, 70);
+                } else {
+                    this.vx = this.vx === 0
+                        ? (Math.random() < 0.5 ? 1 : -1) * this.baseSpeed
+                        : (this.vx > 0 ? 1 : -1) * this.baseSpeed;
+                }
+            }
+
+            // Proximity greeting — only this pet triggers, sets both
+            if (this.greetCooldown <= 0) {
+                for (const other of otherPets) {
+                    if ((other.state === 'happy' || other.state === 'sad') && other.greetCooldown <= 0) {
+                        const dx = other.x - this.x;
+                        if (Math.abs(dx) < this.size * 1.05) {
+                            const greetDur = 80 + Math.floor(Math.random() * 70);
+                            const pair = PET_DIALOGUES.greet[Math.floor(Math.random() * PET_DIALOGUES.greet.length)];
+                            this.state = 'greeting';
+                            this.greetTimer = greetDur;
+                            this.greetCooldown = 220 + Math.floor(Math.random() * 100);
+                            this.direction = dx >= 0 ? 1 : -1;
+                            this.vx = 0;
+                            this.scheduleBubble(pair[0], 6, 72);
+                            other.state = 'greeting';
+                            other.greetTimer = greetDur;
+                            other.greetCooldown = this.greetCooldown;
+                            other.direction = -this.direction;
+                            other.vx = 0;
+                            other.scheduleBubble(pair[1], 52, 72);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const bobAmt = Math.abs(this.vx) < 0.3 ? 3 : 1.2;
+            jumpOffset = Math.sin(this.bobPhase) * bobAmt;
+
+            if (this.hopTimer > 0) {
+                this.hopPhase += Math.PI / 30;
+                jumpOffset -= Math.sin(this.hopPhase) * 20;
+                this.hopTimer--;
+                if (this.hopTimer === 0) { this.squashY = 0.65; }
+            }
+
+            if (this.squashY < 1) this.squashY = Math.min(1, this.squashY + 0.06);
+            else if (this.squashY > 1) this.squashY = Math.max(1, this.squashY - 0.06);
+
             this.x += this.vx;
-            if (this.x < 0) { this.x = 0; this.vx *= -1; }
-            else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx *= -1; }
-            this.direction = this.vx > 0 ? 1 : -1;
+            if (this.x < 0) { this.x = 0; this.vx = Math.abs(this.vx) || this.baseSpeed; }
+            else if (this.x > petsCanvas.width - this.size) { this.x = petsCanvas.width - this.size; this.vx = -(Math.abs(this.vx) || this.baseSpeed); }
+            this.direction = this.vx >= 0 ? 1 : -1;
+            this.tilt = this.vx * 0.025;
         }
 
-        // Align pet to the 2.5D floor baseline + kasama ang jump
         this.y = petsCanvas.height - this.size - 30 + jumpOffset;
     }
 
@@ -535,6 +772,7 @@ class Pet {
         ctx.save();
         ctx.translate(this.x + s / 2, this.y + s / 2);
         if (this.direction === -1) ctx.scale(-1, 1);
+        ctx.rotate(this.tilt * this.direction);
 
         try {
             if (this.image.complete && this.image.naturalWidth > 0) {
@@ -544,9 +782,12 @@ class Pet {
                 const drawH = s;
                 const drawW = s * aspect;
 
-                // 2.5D Trick: Draw Reflection underneath!
+                // Squash/stretch: scale Y, compensate X to keep volume
+                ctx.scale(1 / this.squashY, this.squashY);
+
+                // 2.5D Reflection
                 ctx.save();
-                ctx.translate(0, drawH / 2);
+                ctx.translate(0, drawH / 2 * this.squashY);
                 ctx.scale(1, -0.3);
                 ctx.globalAlpha = 0.2;
                 ctx.drawImage(this.image, this.frame * sw, row * sh, sw, sh, -drawW / 2, 0, drawW, drawH);
@@ -561,6 +802,77 @@ class Pet {
                 ctx.textAlign = 'center'; ctx.fillText(this.name[0].toUpperCase(), 0, s / 10);
             }
         } catch (e) { }
+        ctx.restore();
+        this.drawBubble(ctx);
+    }
+
+    scheduleBubble(text, delay, duration = 80) {
+        this.pendingBubble = { text, countdown: delay, duration };
+    }
+
+    showBubble(text, duration = 80) {
+        this.bubble = { text, opacity: 0, timer: duration };
+    }
+
+    tickBubble() {
+        if (this.pendingBubble) {
+            this.pendingBubble.countdown--;
+            if (this.pendingBubble.countdown <= 0) {
+                this.showBubble(this.pendingBubble.text, this.pendingBubble.duration);
+                this.pendingBubble = null;
+            }
+        }
+        if (this.bubble) {
+            if (this.bubble.opacity < 1) this.bubble.opacity = Math.min(1, this.bubble.opacity + 0.15);
+            this.bubble.timer--;
+            if (this.bubble.timer < 18) this.bubble.opacity = Math.max(0, this.bubble.timer / 18);
+            if (this.bubble.timer <= 0) this.bubble = null;
+        }
+    }
+
+    drawBubble(ctx) {
+        if (!this.bubble || this.bubble.opacity <= 0) return;
+        const text = this.bubble.text;
+        const cx = this.x + this.size / 2;
+        const cy = this.y;
+        const fontSize = Math.max(11, this.size * 0.17);
+        ctx.save();
+        ctx.globalAlpha = this.bubble.opacity;
+        ctx.font = `bold ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+        const tw = ctx.measureText(text).width;
+        const pad = 7;
+        const bw = tw + pad * 2;
+        const bh = fontSize + pad * 2;
+        let bx = cx - bw / 2;
+        const by = cy - bh - 14;
+        // Clamp horizontally inside canvas
+        bx = Math.max(4, Math.min(petsCanvas.width - bw - 4, bx));
+        // Bubble body
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const r = 6;
+        ctx.moveTo(bx + r, by);
+        ctx.lineTo(bx + bw - r, by);
+        ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+        ctx.lineTo(bx + bw, by + bh - r);
+        ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+        ctx.lineTo(bx + bw / 2 + 5, by + bh);
+        ctx.lineTo(cx, by + bh + 10); // tail tip
+        ctx.lineTo(bx + bw / 2 - 5, by + bh);
+        ctx.lineTo(bx + r, by + bh);
+        ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+        ctx.lineTo(bx, by + r);
+        ctx.quadraticCurveTo(bx, by, bx + r, by);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // Text
+        ctx.fillStyle = '#1a1a2e';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + pad, by + bh / 2);
         ctx.restore();
     }
 
@@ -579,14 +891,399 @@ class Pet {
             this.timer = 180;
             this.vx = 0;
             this.frame = 0;
+            const lines = PET_DIALOGUES.jackpot;
+            this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 10, 90);
         } else if (actualMulti >= 1) {
             this.state = 'happy';
             if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+            if (Math.random() < 0.5) {
+                const lines = PET_DIALOGUES.win;
+                this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 5, 65);
+            }
         } else {
             this.state = 'sad';
             if (this.vx === 0) this.vx = (Math.random() - 0.5) * 1.5;
+            if (Math.random() < 0.6) {
+                const lines = PET_DIALOGUES.sad;
+                this.scheduleBubble(lines[Math.floor(Math.random() * lines.length)], 5, 65);
+            }
         }
     }
+}
+
+// ============================================================================
+// ANIMATED BACKGROUND SYSTEM
+// ============================================================================
+let bgParticles = [];
+let bgStars = [];
+let bgShootingStars = [];
+let bgLastShot = 0;
+
+function initBgParticles() {
+    bgParticles = [];
+    bgStars = [];
+    bgShootingStars = [];
+    const w = bgCanvas.width;
+    const h = bgCanvas.height;
+
+    switch (state.currentTheme) {
+        case 'galaxy':
+            for (let i = 0; i < 220; i++) {
+                bgStars.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    size: Math.random() * 1.8 + 0.3,
+                    speed: Math.random() * 0.04 + 0.008,
+                    phase: Math.random() * Math.PI * 2,
+                    brightness: Math.random() * 0.5 + 0.5
+                });
+            }
+            break;
+        case 'deep_sea':
+            for (let i = 0; i < 35; i++) bgParticles.push(_mkBubble(w, h, true));
+            break;
+        case 'inferno':
+            for (let i = 0; i < 55; i++) bgParticles.push(_mkEmber(w, h, true));
+            break;
+        case 'cherry_blossom':
+            for (let i = 0; i < 45; i++) bgParticles.push(_mkPetal(w, h, true));
+            break;
+        case 'neon':
+            for (let i = 0; i < 18; i++) {
+                bgParticles.push({
+                    x: Math.random() * w, y: Math.random() * h,
+                    vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+                    r: Math.random() * 3 + 1,
+                    color: ['#00e5ff', '#cc44ff', '#ff00ff'][Math.floor(Math.random() * 3)],
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            break;
+        case 'gold_rush':
+            for (let i = 0; i < 35; i++) bgParticles.push(_mkSparkle(w, h, true));
+            break;
+        case 'retro_arcade':
+            // No particles needed — scanlines are drawn procedurally
+            break;
+    }
+}
+
+function _mkBubble(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : h + 20,
+        r: Math.random() * 9 + 3,
+        vy: -(Math.random() * 0.5 + 0.2),
+        vx: (Math.random() - 0.5) * 0.2,
+        opacity: Math.random() * 0.35 + 0.1,
+        wobblePhase: Math.random() * Math.PI * 2,
+        wobbleSpeed: Math.random() * 0.02 + 0.01
+    };
+}
+
+function _mkEmber(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : h + 5,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: -(Math.random() * 1.8 + 0.6),
+        size: Math.random() * 3 + 1,
+        life: rand ? Math.random() : 1,
+        decay: Math.random() * 0.004 + 0.002,
+        color: ['#ff4400', '#ff6600', '#ffaa00', '#ff2200'][Math.floor(Math.random() * 4)]
+    };
+}
+
+function _mkPetal(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : -20,
+        vy: Math.random() * 0.7 + 0.25,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.025,
+        size: Math.random() * 9 + 5,
+        opacity: Math.random() * 0.55 + 0.25,
+        swayPhase: Math.random() * Math.PI * 2,
+        swaySpeed: Math.random() * 0.018 + 0.008
+    };
+}
+
+function _mkSparkle(w, h, rand = false) {
+    return {
+        x: Math.random() * w,
+        y: rand ? Math.random() * h : -10,
+        vy: Math.random() * 1.2 + 0.4,
+        vx: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 3 + 1,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.08,
+        phase: Math.random() * Math.PI * 2
+    };
+}
+
+function drawBackground() {
+    const w = bgCanvas.width;
+    const h = bgCanvas.height;
+    const t = Date.now();
+
+    bgCtx.clearRect(0, 0, w, h);
+
+    switch (state.currentTheme) {
+        case 'galaxy':        _drawGalaxy(w, h, t);       break;
+        case 'deep_sea':      _drawDeepSea(w, h, t);      break;
+        case 'inferno':       _drawInferno(w, h, t);      break;
+        case 'cherry_blossom':_drawCherryBlossom(w, h, t);break;
+        case 'neon':          _drawNeon(w, h, t);         break;
+        case 'gold_rush':     _drawGoldRush(w, h, t);     break;
+        case 'retro_arcade':  _drawRetroArcade(w, h, t);  break;
+    }
+}
+
+function _drawGalaxy(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#000008');
+    grad.addColorStop(1, '#07000f');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    bgStars.forEach(s => {
+        const alpha = s.brightness * (0.4 + 0.6 * Math.sin(t * s.speed + s.phase));
+        bgCtx.beginPath();
+        bgCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(255,255,255,${alpha})`;
+        bgCtx.fill();
+    });
+
+    // Shooting stars
+    if (t - bgLastShot > 3500 + Math.random() * 3000) {
+        bgLastShot = t;
+        bgShootingStars.push({
+            x: Math.random() * w * 0.6,
+            y: Math.random() * h * 0.4,
+            vx: 9 + Math.random() * 7,
+            vy: 3 + Math.random() * 5,
+            life: 1, decay: 0.025
+        });
+    }
+    for (let i = bgShootingStars.length - 1; i >= 0; i--) {
+        const s = bgShootingStars[i];
+        const tailLen = 80;
+        const grad = bgCtx.createLinearGradient(s.x, s.y, s.x - s.vx * 5, s.y - s.vy * 5);
+        grad.addColorStop(0, `rgba(255,255,255,${s.life})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        bgCtx.beginPath();
+        bgCtx.moveTo(s.x, s.y);
+        bgCtx.lineTo(s.x - s.vx * (tailLen / 14), s.y - s.vy * (tailLen / 14));
+        bgCtx.strokeStyle = grad;
+        bgCtx.lineWidth = 2;
+        bgCtx.stroke();
+        s.x += s.vx; s.y += s.vy; s.life -= s.decay;
+        if (s.life <= 0) bgShootingStars.splice(i, 1);
+    }
+}
+
+function _drawDeepSea(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#000d1a');
+    grad.addColorStop(1, '#001a2e');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Light rays
+    for (let i = 0; i < 5; i++) {
+        const rx = (w / 5) * i + w / 10 + Math.sin(t * 0.0004 + i) * 25;
+        const alpha = 0.015 + Math.sin(t * 0.0008 + i * 1.3) * 0.008;
+        const rg = bgCtx.createLinearGradient(rx, 0, rx + 50, h);
+        rg.addColorStop(0, `rgba(0,200,255,${alpha})`);
+        rg.addColorStop(1, 'rgba(0,200,255,0)');
+        bgCtx.beginPath();
+        bgCtx.moveTo(rx, 0); bgCtx.lineTo(rx + 70, h);
+        bgCtx.lineTo(rx + 110, h); bgCtx.lineTo(rx + 40, 0);
+        bgCtx.fillStyle = rg; bgCtx.fill();
+    }
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const b = bgParticles[i];
+        b.x += b.vx + Math.sin(t * b.wobbleSpeed + b.wobblePhase) * 0.3;
+        b.y += b.vy;
+        if (b.y < -b.r * 2) { bgParticles[i] = _mkBubble(w, h); continue; }
+        bgCtx.beginPath();
+        bgCtx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        bgCtx.strokeStyle = `rgba(100,220,255,${b.opacity})`;
+        bgCtx.lineWidth = 1;
+        bgCtx.stroke();
+        bgCtx.beginPath();
+        bgCtx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.28, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(210,245,255,${b.opacity * 0.7})`;
+        bgCtx.fill();
+    }
+}
+
+function _drawInferno(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a0000');
+    grad.addColorStop(0.65, '#1c0400');
+    grad.addColorStop(1, '#2e0800');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Lava cracks (redrawn each frame from seed — cheap)
+    bgCtx.save();
+    bgCtx.lineWidth = 1;
+    for (let i = 0; i < 7; i++) {
+        const pulse = 0.06 + Math.sin(t * 0.002 + i) * 0.04;
+        bgCtx.strokeStyle = `rgba(255,80,0,${pulse})`;
+        bgCtx.beginPath();
+        let cx = (w / 7) * i + 20, cy = h;
+        bgCtx.moveTo(cx, cy);
+        while (cy > h * 0.55) {
+            cx += Math.sin(i * 13.7 + cy * 0.03) * 25;
+            cy -= 35 + Math.sin(i * 7.3 + cx * 0.02) * 15;
+            bgCtx.lineTo(cx, cy);
+        }
+        bgCtx.stroke();
+    }
+    bgCtx.restore();
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const e = bgParticles[i];
+        e.x += e.vx; e.y += e.vy; e.life -= e.decay;
+        if (e.life <= 0 || e.y < -10) { bgParticles[i] = _mkEmber(w, h); continue; }
+        bgCtx.beginPath();
+        bgCtx.arc(e.x, e.y, e.size * e.life, 0, Math.PI * 2);
+        bgCtx.fillStyle = e.color;
+        bgCtx.globalAlpha = e.life * 0.75;
+        bgCtx.fill();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 60 && Math.random() < 0.35) bgParticles.push(_mkEmber(w, h));
+}
+
+function _drawCherryBlossom(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#1a0d10');
+    grad.addColorStop(1, '#0d0508');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const p = bgParticles[i];
+        p.x += Math.sin(t * p.swaySpeed + p.swayPhase) * 0.6;
+        p.y += p.vy;
+        p.rotation += p.rotSpeed;
+        if (p.y > h + 20) { bgParticles[i] = _mkPetal(w, h); continue; }
+        bgCtx.save();
+        bgCtx.translate(p.x, p.y);
+        bgCtx.rotate(p.rotation);
+        bgCtx.globalAlpha = p.opacity;
+        bgCtx.beginPath();
+        bgCtx.ellipse(0, 0, p.size * 0.38, p.size, 0, 0, Math.PI * 2);
+        bgCtx.fillStyle = '#ffb7c5';
+        bgCtx.fill();
+        bgCtx.restore();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 45 && Math.random() < 0.04) bgParticles.push(_mkPetal(w, h));
+}
+
+function _drawNeon(w, h, t) {
+    bgCtx.fillStyle = '#02010c';
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Grid
+    bgCtx.strokeStyle = 'rgba(0,229,255,0.035)';
+    bgCtx.lineWidth = 1;
+    const gs = 65;
+    for (let x = 0; x < w; x += gs) { bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, h); bgCtx.stroke(); }
+    for (let y = 0; y < h; y += gs) { bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke(); }
+
+    // Floating orbs
+    bgParticles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+        const alpha = 0.25 + 0.25 * Math.sin(t * 0.002 + p.phase);
+        bgCtx.beginPath();
+        bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        bgCtx.shadowBlur = 18;
+        bgCtx.shadowColor = p.color;
+        bgCtx.globalAlpha = alpha;
+        bgCtx.fillStyle = p.color;
+        bgCtx.fill();
+        bgCtx.shadowBlur = 0;
+        bgCtx.globalAlpha = 1;
+    });
+}
+
+function _drawGoldRush(w, h, t) {
+    const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a0700');
+    grad.addColorStop(1, '#1a1100');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, 0, w, h);
+
+    for (let i = bgParticles.length - 1; i >= 0; i--) {
+        const s = bgParticles[i];
+        s.x += s.vx; s.y += s.vy;
+        s.rotation += s.rotSpeed;
+        s.phase += 0.05;
+        if (s.y > h + 10) { bgParticles[i] = _mkSparkle(w, h); continue; }
+        const alpha = (0.55 + 0.45 * Math.sin(s.phase)) * 0.8;
+        bgCtx.save();
+        bgCtx.translate(s.x, s.y);
+        bgCtx.rotate(s.rotation);
+        bgCtx.globalAlpha = alpha;
+        bgCtx.beginPath();
+        for (let j = 0; j < 4; j++) {
+            const a = (j / 4) * Math.PI * 2;
+            bgCtx.lineTo(Math.cos(a) * s.size, Math.sin(a) * s.size);
+            bgCtx.lineTo(Math.cos(a + Math.PI / 4) * (s.size * 0.4), Math.sin(a + Math.PI / 4) * (s.size * 0.4));
+        }
+        bgCtx.closePath();
+        bgCtx.fillStyle = '#ffd700';
+        bgCtx.fill();
+        bgCtx.restore();
+        bgCtx.globalAlpha = 1;
+    }
+    if (bgParticles.length < 35 && Math.random() < 0.1) bgParticles.push(_mkSparkle(w, h));
+}
+
+function _drawRetroArcade(w, h, t) {
+    bgCtx.fillStyle = '#000000';
+    bgCtx.fillRect(0, 0, w, h);
+
+    // Pixel grid dots
+    bgCtx.fillStyle = 'rgba(0,80,0,0.18)';
+    for (let x = 0; x < w; x += 12) {
+        for (let y = 0; y < h; y += 12) {
+            bgCtx.fillRect(x, y, 1, 1);
+        }
+    }
+
+    // CRT scanlines
+    for (let y = 0; y < h; y += 3) {
+        bgCtx.fillStyle = 'rgba(0,0,0,0.2)';
+        bgCtx.fillRect(0, y, w, 1);
+    }
+
+    // Slow horizontal scan glow
+    const scanY = ((t * 0.03) % h);
+    const scanGrad = bgCtx.createLinearGradient(0, scanY - 40, 0, scanY + 40);
+    scanGrad.addColorStop(0, 'rgba(0,255,80,0)');
+    scanGrad.addColorStop(0.5, 'rgba(0,255,80,0.03)');
+    scanGrad.addColorStop(1, 'rgba(0,255,80,0)');
+    bgCtx.fillStyle = scanGrad;
+    bgCtx.fillRect(0, scanY - 40, w, 80);
+}
+
+function applyTheme(id) {
+    document.body.classList.remove(
+        'theme-neon', 'theme-gold-rush', 'theme-galaxy',
+        'theme-deep-sea', 'theme-inferno', 'theme-cherry-blossom', 'theme-retro-arcade'
+    );
+    if (id !== 'default') document.body.classList.add(`theme-${id.replace(/_/g, '-')}`);
+    state.currentTheme = id;
+    initBgParticles();
 }
 
 // ============================================================================
@@ -595,6 +1292,12 @@ class Pet {
 function triggerRGBEffect(mode) {
     state.borderEffect.mode = mode;
     state.borderEffect.timer = 60; // 1 second animation duration (60 fps)
+}
+
+function getFirePalette(streak) {
+    if (streak >= 15) return { colors: ['#ff1493', '#ff0066', '#ff44bb', '#ee00aa'], glow: '#ff1493' };
+    if (streak >= 10) return { colors: ['#00aaff', '#0055ff', '#44ddff', '#00ccff'], glow: '#00aaff' };
+    return { colors: ['#ff6b00', '#ff4400', '#ffaa00', '#ff8800'], glow: '#ff6600' };
 }
 
 function drawLightbulbs(ctx, w, h) {
@@ -656,7 +1359,13 @@ function drawLightbulbs(ctx, w, h) {
         ctx.save();
 
         if (!color) {
-            if (state.autoPlay) {
+            if (state.winStreak >= 5) {
+                // Fire border — flicker based on time + bulb index
+                const palette = getFirePalette(state.winStreak);
+                const flicker = Math.floor((time / 60 + index * 0.7)) % palette.colors.length;
+                color = palette.colors[flicker];
+                glow = 20 + Math.sin(time / 80 + index * 0.3) * 10;
+            } else if (state.autoPlay) {
                 // AutoPlay Marquee
                 let dist = (headIndex - index + totalBulbs) % totalBulbs;
                 let tailLength = 15;
@@ -706,7 +1415,8 @@ function dropBall() {
         vx: (Math.random() - 0.5) * 2, vy: 0,
         radius: Math.max(2, spacing * 0.15),
         color: color,
-        trail: []
+        trail: [],
+        bet: state.bet
     });
 }
 
@@ -732,24 +1442,26 @@ function checkDailyLogin() {
     const today = new Date().toDateString();
     if (state.lastLogin !== today) {
         state.lastLogin = today;
-        state.balance += CONFIG.DAILY_REWARD;
-        state.coins += 50;
         state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
-        showAlert(`Daily Reward! 🎁<br>+₱${CONFIG.DAILY_REWARD.toFixed(2)} Balance<br>+50 Coins`);
         saveState();
+    }
+    if (state.lastSpin !== today) {
+        openLuckySpin();
     }
 }
 
 function addXP(amount) {
+    floatXP(amount);
     state.xp += amount;
     const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
 
     if (state.xp >= xpNeeded) {
         state.xp -= xpNeeded;
         state.level++;
-        const coinReward = state.level * 100;
-        state.coins += coinReward;
-        showAlert(`🎉 Level Up!<br>Level ${state.level}<br>+${coinReward} Coins`);
+        const starReward = state.level * 100;
+        state.stars += starReward;
+        showToast(`🎉 <strong>Level Up!</strong><br>You are now <strong style="color:var(--gold)">Level ${state.level}</strong><br><span>+${starReward} ⭐ Stars</span>`);
+        createLevelUpBurst();
         playSound(new Audio('mp3/paldo-nanaman.mp3'));
     }
     updateLevelDisplay();
@@ -760,9 +1472,8 @@ function checkAchievements() {
     ACHIEVEMENTS.forEach(ach => {
         if (!state.achievements.includes(ach.id) && ach.condition()) {
             state.achievements.push(ach.id);
-            state.balance += ach.reward;
-            state.coins += ach.reward / 2;
-            showAlert(`🏆 Achievement Unlocked!<br>${ach.icon} ${ach.name}<br>+₱${ach.reward} & +${ach.reward/2} Coins`);
+            state.stars += ach.reward;
+            showToast(`🏆 <strong>Achievement Unlocked!</strong><br>${ach.icon} ${ach.name}<br><span>+${ach.reward} ⭐</span>`);
             playSound(new Audio('mp3/paldo-nanaman.mp3'));
             saveState();
         }
@@ -773,12 +1484,12 @@ function activatePowerup(powerupId) {
     const powerup = SHOP_ITEMS.powerups.find(p => p.id === powerupId);
     if (!powerup) return;
 
-    if (state.coins < powerup.cost) {
-        showAlert('Not enough coins! 💰');
+    if (state.stars < powerup.cost) {
+        showAlert('Not enough stars! ⭐');
         return;
     }
 
-    state.coins -= powerup.cost;
+    state.stars -= powerup.cost;
     state.activePowerups.push({
         id: powerup.id,
         name: powerup.name,
@@ -832,7 +1543,7 @@ function handleLoss(betAmount) {
     const shield = state.activePowerups.find(p => p.id === 'shield');
     if (shield) {
         refund = betAmount * 0.5;
-        state.balance += refund;
+        state.stars += refund;
         consumePowerup('shield');
     }
 
@@ -852,14 +1563,32 @@ function handleStreakLoss() {
 }
 
 function updatePhysics() {
+    const gravMult  = state.slowMo > 0 ? 0.25 : 1;
+    const fricMult  = state.slowMo > 0 ? 0.992 : CONFIG.FRICTION;
+    if (state.slowMo > 0) state.slowMo--;
+
     for (let i = balls.length - 1; i >= 0; i--) {
         const ball = balls[i];
 
         ball.trail.push({ x: ball.x, y: ball.y });
         if (ball.trail.length > CONFIG.TRAIL_LENGTH) ball.trail.shift();
 
-        ball.vy += CONFIG.GRAVITY;
-        ball.vx *= CONFIG.FRICTION;
+        // Emit fire particles when on a streak
+        if (state.winStreak >= 5 && Math.random() < 0.5) {
+            const palette = getFirePalette(state.winStreak);
+            fireParticles.push({
+                x: ball.x + (Math.random() - 0.5) * ball.radius * 1.5,
+                y: ball.y + (Math.random() - 0.5) * ball.radius * 0.5,
+                vx: (Math.random() - 0.5) * 1.2,
+                vy: -(Math.random() * 2 + 1),
+                color: palette.colors[Math.floor(Math.random() * palette.colors.length)],
+                size: Math.random() * 3 + 1.5,
+                life: 1
+            });
+        }
+
+        ball.vy += CONFIG.GRAVITY * gravMult;
+        ball.vx *= fricMult;
         ball.x += ball.vx;
         ball.y += ball.vy;
 
@@ -869,6 +1598,7 @@ function updatePhysics() {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < ball.radius + peg.radius) {
                 playSound(pegSound);
+                pegRipples.push({ x: peg.x, y: peg.y, r: peg.radius + 1, life: 1 });
                 const nx = dx / dist;
                 const ny = dy / dist;
                 const dot = ball.vx * nx + ball.vy * ny;
@@ -883,7 +1613,7 @@ function updatePhysics() {
 
         slots.forEach((slot, idx) => {
             if (ball.y > slot.y && ball.x > slot.x && ball.x < slot.x + slot.width) {
-                handleWin(slot.multiplier, idx, slot);
+                handleWin(slot.multiplier, idx, slot, ball.bet);
                 balls.splice(i, 1);
             }
         });
@@ -912,20 +1642,30 @@ function updatePhysics() {
         if (p.life <= 0 || p.y > plinkoCanvas.height) confetti.splice(i, 1);
     }
 
-    if (balls.length === 0 && state.balance < CONFIG.MIN_BET) {
+    for (let i = fireParticles.length - 1; i >= 0; i--) {
+        const p = fireParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.97;
+        p.life -= 0.06;
+        p.size *= 0.97;
+        if (p.life <= 0) fireParticles.splice(i, 1);
+    }
+
+    if (balls.length === 0 && state.stars < CONFIG.MIN_BET) {
         if (!state.isGameOver) {
             showGameOver();
         }
-    } else if (balls.length === 0 && state.balance >= CONFIG.MIN_BET) {
+    } else if (balls.length === 0 && state.stars >= CONFIG.MIN_BET) {
         state.isGameOver = false;
     }
 }
 
-function handleWin(multiplier, slotIdx, slot) {
+function handleWin(multiplier, slotIdx, slot, bet) {
     let actualMulti = multiplier;
 
     // Check for comeback achievement
-    if (state.balance <= 0 && multiplier >= 1) {
+    if (state.stars <= 0 && multiplier >= 1) {
         state.comebackAchieved = true;
     }
 
@@ -939,6 +1679,14 @@ function handleWin(multiplier, slotIdx, slot) {
         if (state.winStreak > CONFIG.STREAK_BONUS_START) {
             const bonus = Math.floor((state.winStreak - CONFIG.STREAK_BONUS_START) * CONFIG.STREAK_BONUS_RATE * 10) / 10;
             actualMulti = multiplier + bonus;
+            winEffects.push({
+                text: `🔥 x${state.winStreak} COMBO!`,
+                x: plinkoCanvas.width / 2,
+                y: plinkoCanvas.height / 3,
+                opacity: 1,
+                rotation: 0,
+                combo: true
+            });
         }
         if (state.winStreak > state.stats.longestStreak) {
             state.stats.longestStreak = state.winStreak;
@@ -967,7 +1715,7 @@ function handleWin(multiplier, slotIdx, slot) {
         state.activePowerups.forEach(p => consumePowerup(p.id));
     } else {
         // Handle loss
-        const refund = handleLoss(state.bet);
+        const refund = handleLoss(bet);
 
         // Check streak saver
         if (!handleStreakLoss()) {
@@ -983,19 +1731,46 @@ function handleWin(multiplier, slotIdx, slot) {
         addXP(CONFIG.XP_PER_GAME);
     }
 
-    let winAmount = state.bet * actualMulti;
+    let winAmount = bet * actualMulti;
 
     // Apply powerups
     const boosted = applyPowerups(actualMulti, winAmount);
     actualMulti = boosted.multiplier;
     winAmount = boosted.winAmount;
 
-    state.balance += winAmount;
+    // Apply prestige bonus
+    if (state.prestige > 0) winAmount *= (1 + state.prestige * 0.05);
 
-    // Award coins based on win
-    if (multiplier >= 1) {
-        const coinReward = Math.floor(winAmount / 10);
-        state.coins += coinReward;
+    state.stars += winAmount;
+
+    // Slow-mo on big wins
+    if (actualMulti >= CONFIG.SLOWMO_THRESHOLD) state.slowMo = CONFIG.SLOWMO_FRAMES;
+
+    // Jackpot meter
+    if (multiplier < 1) {
+        state.jackpotMeter = Math.min(CONFIG.JACKPOT_METER_MAX, state.jackpotMeter + 8);
+    } else if (multiplier <= 2) {
+        state.jackpotMeter = Math.min(CONFIG.JACKPOT_METER_MAX, state.jackpotMeter + 2);
+    } else {
+        state.jackpotMeter = Math.max(0, state.jackpotMeter - 5);
+    }
+    if (state.jackpotMeter >= CONFIG.JACKPOT_METER_MAX) {
+        state.jackpotMeter = 0;
+        state.activePowerups.push({ id: 'jackpot_boost', name: '💎 Jackpot Boost', remaining: 3 });
+        showToast('🎰 <strong>Jackpot Meter FULL!</strong><br><span>💎 Jackpot Boost activated for 3 plays!</span>');
+        updatePowerupDisplay();
+    }
+    updateJackpotMeter();
+
+    // Bet strategy adjustment
+    if (state.betStrategy === 'martingale') {
+        state.bet = multiplier < 1
+            ? Math.min(state.stars, state.bet * 2)
+            : state.baseBet;
+    } else if (state.betStrategy === 'anti_martingale') {
+        state.bet = multiplier >= 2
+            ? Math.min(state.stars, state.bet * 2)
+            : state.baseBet;
     }
 
     if (!slotHeat[slotIdx]) slotHeat[slotIdx] = 0;
@@ -1004,11 +1779,15 @@ function handleWin(multiplier, slotIdx, slot) {
     slotPulses.push({ slotIndex: slotIdx, life: 30 });
 
     state.stats.gamesPlayed++;
-    state.stats.totalWagered += state.bet;
-    state.dailyProgress.wagered += state.bet;
+    state.stats.totalWagered += bet;
+    state.dailyProgress.wagered += bet;
     state.stats.totalWon += winAmount;
     if (winAmount > state.stats.biggestWin) state.stats.biggestWin = winAmount;
     if (actualMulti > state.stats.biggestMultiplier) state.stats.biggestMultiplier = actualMulti;
+
+    // Track balance history for sparkline
+    state.balanceHistory.push(state.stars);
+    if (state.balanceHistory.length > 20) state.balanceHistory.shift();
 
     // Check achievements
     checkAchievements();
@@ -1016,7 +1795,7 @@ function handleWin(multiplier, slotIdx, slot) {
     saveState();
     updateDisplay();
     updateStatsDisplay();
-    addHistoryEntry(state.bet, actualMulti);
+    addHistoryEntry(bet, actualMulti);
 
     if (actualMulti >= CONFIG.CONFETTI_THRESHOLD && slot) {
         createConfetti(slot.x + slot.width / 2, slot.y);
@@ -1075,8 +1854,43 @@ function hideGameOver() {
     if (tuco) tuco.pause();
 }
 
+function refreshPresetButtons() {
+    const presetsEl = document.getElementById('betPresets');
+    if (!presetsEl) return;
+    presetsEl.querySelectorAll('.preset-btn').forEach((btn, i) => {
+        btn.disabled = CONFIG.PRESETS[i] > state.stars;
+    });
+}
+
+function renderDailyChallenges() {
+    const el = document.getElementById('challengesDisplay');
+    if (!el) return;
+    const progress = state.dailyProgress;
+    const progressMap = {
+        daily_wins:    progress.wins,
+        daily_streak:  progress.streak,
+        daily_wagered: progress.wagered
+    };
+    el.innerHTML = DAILY_CHALLENGES.map(c => {
+        const current = Math.min(progressMap[c.id] || 0, c.target);
+        const pct = Math.floor((current / c.target) * 100);
+        const done = current >= c.target;
+        return `
+            <div class="challenge-item ${done ? 'challenge-done' : ''}">
+                <div class="challenge-header">
+                    <span>${c.icon} ${c.name}</span>
+                    <span class="challenge-reward">+${c.reward}⭐</span>
+                </div>
+                <div class="challenge-bar-wrap">
+                    <div class="challenge-bar" style="width:${pct}%"></div>
+                </div>
+                <div class="challenge-progress">${current} / ${c.target}${done ? ' ✓' : ''}</div>
+            </div>`;
+    }).join('');
+}
+
 function updateDisplay() {
-    if (balanceEl) balanceEl.textContent = `₱${state.balance.toFixed(2)}`;
+    if (balanceEl) balanceEl.textContent = `⭐${state.stars.toFixed(2)}`;
 
     const streakEl = document.getElementById('streakDisplay');
     if (streakEl) {
@@ -1092,35 +1906,79 @@ function updateDisplay() {
     if (maxWinEl) {
         const maxMulti = Math.max(...(MULTIPLIERS[state.lines]?.[state.risk] || [1]));
         const maxWin = state.bet * maxMulti;
-        maxWinEl.textContent = `Max: ₱${maxWin.toFixed(2)} (${maxMulti}x)`;
+        maxWinEl.textContent = `Max: ⭐${maxWin.toFixed(2)} (${maxMulti}x)`;
     }
 
     updateLevelDisplay();
-    updateCoinDisplay();
     updatePowerupDisplay();
+    refreshPresetButtons();
+    renderDailyChallenges();
+}
+
+function floatXP(amount) {
+    const levelEl = document.getElementById('levelDisplay');
+    if (!levelEl) return;
+    const rect = levelEl.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'xp-float';
+    el.textContent = `+${amount} XP`;
+    el.style.left = `${rect.left + rect.width / 2}px`;
+    el.style.top = `${rect.top}px`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+}
+
+function createLevelUpBurst() {
+    const cx = plinkoCanvas.width / 2;
+    const cy = plinkoCanvas.height / 2;
+    for (let i = 0; i < 60; i++) {
+        const angle = (Math.PI * 2 * i) / 60;
+        const speed = Math.random() * 6 + 2;
+        confetti.push({
+            x: cx, y: cy,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 3,
+            color: ['#f9d71c', '#d4af37', '#ffaa00', '#fff'][Math.floor(Math.random() * 4)],
+            size: Math.random() * 5 + 3,
+            life: 1,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.2
+        });
+    }
+}
+
+function updateJackpotMeter() {
+    const el = document.getElementById('jackpotMeter');
+    const fill = document.getElementById('jackpotMeterFill');
+    if (!el || !fill) return;
+    const pct = (state.jackpotMeter / CONFIG.JACKPOT_METER_MAX) * 100;
+    fill.style.width = `${pct}%`;
+    el.title = `Jackpot Meter: ${Math.floor(pct)}%`;
+    fill.className = 'jackpot-fill' + (pct >= 100 ? ' jackpot-full' : pct >= 70 ? ' jackpot-hot' : '');
 }
 
 function updateLevelDisplay() {
     const levelEl = document.getElementById('levelDisplay');
-    if (levelEl) {
-        const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
-        const progress = Math.floor((state.xp / xpNeeded) * 100);
-        levelEl.innerHTML = `
-            <div class="level-badge">
-                <span class="level-number">Lv.${state.level}</span>
-            </div>
-            <div class="xp-bar-container">
-                <div class="xp-bar" style="width: ${progress}%"></div>
-                <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
-            </div>
-        `;
-    }
-}
-
-function updateCoinDisplay() {
-    const coinEl = document.getElementById('coinDisplay');
-    if (coinEl) {
-        coinEl.textContent = `🪙 ${state.coins} Coins`;
+    if (!levelEl) return;
+    const xpNeeded = state.level * CONFIG.XP_PER_LEVEL;
+    const progress = Math.floor((state.xp / xpNeeded) * 100);
+    const prestigeBadge = state.prestige > 0 ? `<span class="prestige-badge">⚡${state.prestige}</span>` : '';
+    const prestigeBtn = state.level >= CONFIG.PRESTIGE_LEVEL
+        ? `<button id="prestigeBtn" class="prestige-btn">✨ PRESTIGE</button>`
+        : '';
+    levelEl.innerHTML = `
+        <div class="level-badge">
+            ${prestigeBadge}<span class="level-number">Lv.${state.level}</span>
+        </div>
+        <div class="xp-bar-container">
+            <div class="xp-bar" style="width: ${progress}%"></div>
+            <span class="xp-text">${state.xp} / ${xpNeeded} XP</span>
+        </div>
+        ${prestigeBtn}
+    `;
+    if (state.level >= CONFIG.PRESTIGE_LEVEL) {
+        const btn = document.getElementById('prestigeBtn');
+        if (btn) btn.addEventListener('click', doPrestige);
     }
 }
 
@@ -1138,6 +1996,19 @@ function updatePowerupDisplay() {
     }
 }
 
+async function doPrestige() {
+    if (state.level < CONFIG.PRESTIGE_LEVEL) return;
+    const bonus = (state.prestige + 1) * 5;
+    if (!await showConfirm(`Prestige! Reset to Lv.1 and gain a permanent +${bonus}% multiplier bonus?`)) return;
+    state.prestige++;
+    state.level = 1;
+    state.xp = 0;
+    showToast(`⚡ <strong>Prestige ${state.prestige}!</strong><br><span>+${state.prestige * 5}% permanent multiplier bonus</span>`);
+    saveState();
+    updateLevelDisplay();
+    updateDisplay();
+}
+
 function updateStatsDisplay() {
     const statsEl = document.getElementById('statsDisplay');
     if (!statsEl) return;
@@ -1145,15 +2016,47 @@ function updateStatsDisplay() {
     const { gamesPlayed, totalWagered, totalWon, biggestWin, biggestMultiplier, longestStreak } = state.stats;
     const netProfit = totalWon - totalWagered;
     const winRate = gamesPlayed > 0 ? ((totalWon / totalWagered) * 100).toFixed(1) : '0.0';
+    const prestigeLine = state.prestige > 0 ? `<div class="stat-row"><span>Prestige:</span><span class="gold">⚡${state.prestige} (+${state.prestige * 5}%)</span></div>` : '';
 
     statsEl.innerHTML = `
         <div class="stat-row"><span>Games:</span><span>${gamesPlayed}</span></div>
-        <div class="stat-row"><span>Net:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">₱${netProfit.toFixed(2)}</span></div>
-        <div class="stat-row"><span>Best Win:</span><span class="win">₱${biggestWin.toFixed(2)}</span></div>
+        <div class="stat-row"><span>Net:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">⭐${netProfit.toFixed(2)}</span></div>
+        <div class="stat-row"><span>Best Win:</span><span class="win">⭐${biggestWin.toFixed(2)}</span></div>
         <div class="stat-row"><span>Best Multi:</span><span class="gold">${biggestMultiplier}x</span></div>
         <div class="stat-row"><span>Longest Streak:</span><span class="gold">🔥${longestStreak}</span></div>
         <div class="stat-row"><span>ROI:</span><span class="${netProfit >= 0 ? 'win' : 'loss'}">${winRate}%</span></div>
+        ${prestigeLine}
+        <canvas id="sparkline" class="sparkline" width="200" height="40"></canvas>
     `;
+    drawSparkline();
+}
+
+function drawSparkline() {
+    const canvas = document.getElementById('sparkline');
+    if (!canvas || state.balanceHistory.length < 2) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const vals = state.balanceHistory;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const toX = i => (i / (vals.length - 1)) * w;
+    const toY = v => h - ((v - min) / range) * (h - 4) - 2;
+
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(vals[0]));
+    for (let i = 1; i < vals.length; i++) ctx.lineTo(toX(i), toY(vals[i]));
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Fill under line
+    ctx.lineTo(toX(vals.length - 1), h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(212,175,55,0.12)';
+    ctx.fill();
 }
 
 function addHistoryEntry(bet, multi) {
@@ -1166,9 +2069,9 @@ function addHistoryEntry(bet, multi) {
     const entry = document.createElement('div');
     entry.className = 'history-entry';
     entry.innerHTML = `
-        <span class="hist-bet">₱${bet.toFixed(2)}</span>
-        <span class="hist-multi">${multi}x</span>
-        <span class="hist-profit ${multi >= 1 ? 'win' : 'loss'}">₱${profit.toFixed(2)}</span>
+        <span class="hist-bet">⭐${bet.toFixed(2)}</span>
+        <span class="hist-multi">${parseFloat(multi.toFixed(2))}x</span>
+        <span class="hist-profit ${multi >= 1 ? 'win' : 'loss'}">⭐${profit.toFixed(2)}</span>
     `;
     historyList.prepend(entry);
     if (historyList.children.length > CONFIG.MAX_HISTORY) {
@@ -1220,6 +2123,10 @@ function resizeCanvases() {
         petsCanvas.width = petsPane.offsetWidth;
         petsCanvas.height = petsPane.offsetHeight;
     }
+
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    initBgParticles();
 
     cachedBgGradient = null;
     generateBoard();
@@ -1311,20 +2218,135 @@ function drawPetStage() {
     petsCtx.shadowBlur = 0;
 
     // Draw the pets on top of this stage
-    pets.forEach(pet => {
-        if (state.activePets.has(pet.name)) {
-            pet.update();
-            pet.draw(petsCtx);
-        }
+    const activePetsList = pets.filter(p => state.activePets.has(p.name));
+    activePetsList.forEach(pet => {
+        const others = activePetsList.filter(p => p !== pet);
+        pet.update(others);
+        pet.draw(petsCtx);
     });
+}
+
+// ============================================================================
+// THEME STYLE HELPER
+// ============================================================================
+function getThemeStyle() {
+    const t = Date.now();
+    switch (state.currentTheme) {
+        case 'neon':
+            return {
+                ballColor:     '#00e5ff',
+                ballGlow:      28 + Math.sin(t / 200) * 10,
+                ballGlowColor: '#00e5ff',
+                trailColor:    '#00e5ff',
+                trailOpacity:  0.55,
+                pegColor:      '#cc44ff',
+                pegGlow:       10,
+                pegGlowColor:  '#9900ff',
+                pegStroke:     '#6600cc',
+                slotGlow:      6
+            };
+        case 'gold_rush':
+            return {
+                ballColor:     '#ffd700',
+                ballGlow:      20 + Math.sin(t / 300) * 6,
+                ballGlowColor: '#ffaa00',
+                trailColor:    '#ffcc00',
+                trailOpacity:  0.45,
+                pegColor:      '#d4af37',
+                pegGlow:       8,
+                pegGlowColor:  '#ffcc00',
+                pegStroke:     '#886600',
+                slotGlow:      4
+            };
+        case 'galaxy':
+            return {
+                ballColor:     '#c084fc',
+                ballGlow:      22 + Math.sin(t / 250) * 8,
+                ballGlowColor: '#818cf8',
+                trailColor:    '#a855f7',
+                trailOpacity:  0.5,
+                pegColor:      '#818cf8',
+                pegGlow:       8,
+                pegGlowColor:  '#6366f1',
+                pegStroke:     '#4338ca',
+                slotGlow:      5
+            };
+        case 'deep_sea':
+            return {
+                ballColor:     '#22d3ee',
+                ballGlow:      20 + Math.sin(t / 400) * 8,
+                ballGlowColor: '#06b6d4',
+                trailColor:    '#67e8f9',
+                trailOpacity:  0.5,
+                pegColor:      '#06b6d4',
+                pegGlow:       9,
+                pegGlowColor:  '#0891b2',
+                pegStroke:     '#0e7490',
+                slotGlow:      5
+            };
+        case 'inferno':
+            return {
+                ballColor:     '#f97316',
+                ballGlow:      25 + Math.sin(t / 150) * 10,
+                ballGlowColor: '#ef4444',
+                trailColor:    '#fb923c',
+                trailOpacity:  0.55,
+                pegColor:      '#f97316',
+                pegGlow:       10,
+                pegGlowColor:  '#dc2626',
+                pegStroke:     '#991b1b',
+                slotGlow:      6
+            };
+        case 'cherry_blossom':
+            return {
+                ballColor:     '#f9a8d4',
+                ballGlow:      18 + Math.sin(t / 350) * 6,
+                ballGlowColor: '#ec4899',
+                trailColor:    '#fbcfe8',
+                trailOpacity:  0.45,
+                pegColor:      '#f472b6',
+                pegGlow:       7,
+                pegGlowColor:  '#ec4899',
+                pegStroke:     '#be185d',
+                slotGlow:      4
+            };
+        case 'retro_arcade':
+            return {
+                ballColor:     '#4ade80',
+                ballGlow:      16,
+                ballGlowColor: '#22c55e',
+                trailColor:    '#86efac',
+                trailOpacity:  0.5,
+                pegColor:      '#4ade80',
+                pegGlow:       8,
+                pegGlowColor:  '#22c55e',
+                pegStroke:     '#166534',
+                slotGlow:      5
+            };
+        default:
+            return {
+                ballColor:     null,
+                ballGlow:      0,
+                ballGlowColor: null,
+                trailColor:    null,
+                trailOpacity:  0.3,
+                pegColor:      '#e0e0e0',
+                pegGlow:       0,
+                pegGlowColor:  null,
+                pegStroke:     '#555555',
+                slotGlow:      0
+            };
+    }
 }
 
 // ============================================================================
 // DRAW - FLAT 2D PLINKO BOARD
 // ============================================================================
 function draw() {
+    const ts = getThemeStyle();
     updatePhysics();
     updateControlsState();
+    drawBackground();
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
     // 1. FLAT BACKGROUND
@@ -1348,15 +2370,18 @@ function draw() {
 
     // 2. FLAT PEGS (Simpleng Circles)
     pegs.forEach(peg => {
-        // Tinanggal ang shadow, body layers, at specular highlight.
-        // Isang simpleng flat circle na may border.
-        plinkoCtx.fillStyle = '#e0e0e0';
-        plinkoCtx.strokeStyle = '#555555'; // Darker gray outline
+        if (ts.pegGlow > 0) {
+            plinkoCtx.shadowBlur = ts.pegGlow;
+            plinkoCtx.shadowColor = ts.pegGlowColor;
+        }
+        plinkoCtx.fillStyle = ts.pegColor;
+        plinkoCtx.strokeStyle = ts.pegStroke;
         plinkoCtx.lineWidth = 1;
         plinkoCtx.beginPath();
         plinkoCtx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
         plinkoCtx.fill();
         plinkoCtx.stroke();
+        plinkoCtx.shadowBlur = 0;
     });
 
     // 3 & 5. SLOTS (Merged and Flattened)
@@ -1391,7 +2416,12 @@ function draw() {
             plinkoCtx.lineWidth = 2 + heat; // Kumakapal ang linya kapag mainit
         }
 
+        if (ts.slotGlow > 0) {
+            plinkoCtx.shadowBlur = ts.slotGlow;
+            plinkoCtx.shadowColor = color;
+        }
         plinkoCtx.strokeRect(slot.x, slot.y, slot.width, slot.height);
+        plinkoCtx.shadowBlur = 0;
 
         // C. TEXT (Pina-simple ang shadow)
         let displayMulti = m >= 1000 ? (m / 1000) + 'k' : m;
@@ -1410,14 +2440,42 @@ function draw() {
         plinkoCtx.restore();
     });
 
+    // Peg ripples
+    for (let i = pegRipples.length - 1; i >= 0; i--) {
+        const rp = pegRipples[i];
+        rp.r += 2.2;
+        rp.life -= 0.07;
+        if (rp.life <= 0) { pegRipples.splice(i, 1); continue; }
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+        plinkoCtx.strokeStyle = ts.pegGlowColor || '#ffffff';
+        plinkoCtx.globalAlpha = rp.life * 0.55;
+        plinkoCtx.lineWidth = 1.5;
+        plinkoCtx.stroke();
+        plinkoCtx.globalAlpha = 1;
+    }
+
+    // Fire particles (drawn behind balls)
+    fireParticles.forEach(p => {
+        plinkoCtx.save();
+        plinkoCtx.globalAlpha = p.life * 0.85;
+        plinkoCtx.shadowBlur = 8;
+        plinkoCtx.shadowColor = p.color;
+        plinkoCtx.fillStyle = p.color;
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        plinkoCtx.fill();
+        plinkoCtx.restore();
+    });
+
     // 4. FLAT BALLS
     balls.forEach(ball => {
         // Trail (Nananatili dahil flat naman ito)
         if (ball.trail && ball.trail.length > 1) {
             for (let i = 0; i < ball.trail.length - 1; i++) {
                 const alpha = (i + 1) / ball.trail.length;
-                plinkoCtx.globalAlpha = alpha * 0.3;
-                plinkoCtx.fillStyle = ball.color;
+                plinkoCtx.globalAlpha = alpha * ts.trailOpacity;
+                plinkoCtx.fillStyle = ts.trailColor || ball.color;
                 plinkoCtx.beginPath();
                 plinkoCtx.arc(ball.trail[i].x, ball.trail[i].y, ball.radius * alpha, 0, Math.PI * 2);
                 plinkoCtx.fill();
@@ -1425,17 +2483,57 @@ function draw() {
             plinkoCtx.globalAlpha = 1;
         }
 
-        // Tinanggal ang Ball Shadow sa ilalim.
-        // Tinanggal ang Gradient Highlight sa ibabaw.
+        // Theme glow (overridden by fire streak)
+        if (ts.ballGlow > 0 && state.winStreak < 5) {
+            plinkoCtx.shadowBlur = ts.ballGlow;
+            plinkoCtx.shadowColor = ts.ballGlowColor;
+        }
+        // Fire streak glow overrides theme
+        if (state.winStreak >= 5) {
+            const palette = getFirePalette(state.winStreak);
+            plinkoCtx.shadowBlur = 18;
+            plinkoCtx.shadowColor = palette.glow;
+        }
 
-        // Isang solid color circle na lang na may manipis na border para di magmukhang flat icon lang
-        plinkoCtx.fillStyle = ball.color;
-        plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
-        plinkoCtx.lineWidth = 1;
-        plinkoCtx.beginPath();
-        plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        plinkoCtx.fill();
-        plinkoCtx.stroke();
+        if (state.currentTheme === 'gold_rush' && state.winStreak < 5 && state.activeSkin === 'default') {
+            const coinSize = ball.radius * 2.2;
+            plinkoCtx.font = `${coinSize}px serif`;
+            plinkoCtx.textAlign = 'center';
+            plinkoCtx.textBaseline = 'middle';
+            plinkoCtx.fillText('🪙', ball.x, ball.y);
+        } else {
+            const skin = state.activeSkin;
+            const t = Date.now();
+            let ballColor = (state.winStreak < 5 && ts.ballColor) ? ts.ballColor : ball.color;
+
+            if (skin === 'flame') {
+                ballColor = '#ff4400';
+                plinkoCtx.shadowBlur = 18; plinkoCtx.shadowColor = '#ff8800';
+            } else if (skin === 'rainbow') {
+                ballColor = `hsl(${(t * 0.2 + ball.x) % 360},100%,60%)`;
+            } else if (skin === 'ghost') {
+                plinkoCtx.globalAlpha = 0.5;
+                ballColor = '#e0e8ff';
+                plinkoCtx.shadowBlur = 12; plinkoCtx.shadowColor = '#aabbff';
+            } else if (skin === 'ice') {
+                ballColor = '#a8eeff';
+                plinkoCtx.shadowBlur = 14; plinkoCtx.shadowColor = '#00ddff';
+            } else if (skin === 'dark_matter') {
+                ballColor = '#0d0010';
+                plinkoCtx.shadowBlur = 22; plinkoCtx.shadowColor = '#9000ff';
+            }
+
+            plinkoCtx.fillStyle = ballColor;
+            plinkoCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+            plinkoCtx.lineWidth = 1;
+            plinkoCtx.beginPath();
+            plinkoCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            plinkoCtx.fill();
+            plinkoCtx.stroke();
+            plinkoCtx.globalAlpha = 1;
+        }
+
+        plinkoCtx.shadowBlur = 0;
     });
 
     // 6. FX (Confetti & Text - Nananatiling flat)
@@ -1458,9 +2556,10 @@ function draw() {
         plinkoCtx.shadowBlur = 5; // Reduced drastically
         plinkoCtx.shadowColor = '#f9d71c';
 
-        plinkoCtx.font = '900 40px sans-serif'; plinkoCtx.textAlign = 'center';
+        const fontSize = effect.combo ? 52 : 40;
+        plinkoCtx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`; plinkoCtx.textAlign = 'center';
         plinkoCtx.fillText(effect.text, 0, 0); plinkoCtx.restore();
-        effect.opacity -= 0.02; effect.rotation += 0.05; effect.y -= 1;
+        effect.opacity -= effect.combo ? 0.015 : 0.02; effect.rotation += 0.05; effect.y -= 1;
         if (effect.opacity <= 0) winEffects.splice(i, 1);
     }
 
@@ -1471,14 +2570,207 @@ function draw() {
 // ============================================================================
 // INIT
 // ============================================================================
+// LUCKY SPIN
+// ============================================================================
+let _spinRotation = 0;
+let _spinAnimId = null;
+
+function drawSpinWheel(rotation) {
+    const canvas = document.getElementById('spinCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const r = cx - 8;
+    const segAngle = (Math.PI * 2) / SPIN_PRIZES.length;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    SPIN_PRIZES.forEach((prize, i) => {
+        const startAngle = rotation + i * segAngle - Math.PI / 2;
+        const endAngle = startAngle + segAngle;
+
+        // Segment fill
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = prize.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Label
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(startAngle + segAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${prize.label.length > 6 ? 11 : 13}px sans-serif`;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.fillText(prize.label, r - 10, 5);
+        ctx.restore();
+    });
+
+    // Gold rim
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffd700';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Center cap
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function openLuckySpin() {
+    const overlay = document.getElementById('luckySpinOverlay');
+    const box = document.getElementById('luckySpinBox');
+    const spinBtn = document.getElementById('spinBtn');
+    const resultEl = document.getElementById('spinResult');
+
+    if (!overlay || !box) return;
+
+    _spinRotation = 0;
+    if (resultEl) { resultEl.textContent = ''; resultEl.classList.remove('pop'); }
+    if (spinBtn) { spinBtn.disabled = false; spinBtn.textContent = 'SPIN!'; }
+
+    drawSpinWheel(0);
+    overlay.classList.remove('hidden');
+    box.classList.remove('hidden');
+}
+
+function closeLuckySpin() {
+    const overlay = document.getElementById('luckySpinOverlay');
+    const box = document.getElementById('luckySpinBox');
+    if (overlay) overlay.classList.add('hidden');
+    if (box) box.classList.add('hidden');
+    if (_spinAnimId) { cancelAnimationFrame(_spinAnimId); _spinAnimId = null; }
+}
+
+function doSpin() {
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = 'Spinning...'; }
+
+    // Start fast, decelerate naturally. Winner is read from final position.
+    let speed = 0.32 + Math.random() * 0.08;
+    const decel = 0.975;
+
+    function animate() {
+        _spinRotation += speed;
+        speed *= decel;
+        drawSpinWheel(_spinRotation);
+
+        if (speed > 0.003) {
+            _spinAnimId = requestAnimationFrame(animate);
+        } else {
+            // Derive winner from where the wheel stopped.
+            // Segment i is centered at (i + 0.5) * segAngle in wheel frame.
+            // Pointer at top maps to wheel angle = (-_spinRotation mod 2π).
+            const segAngle = (Math.PI * 2) / SPIN_PRIZES.length;
+            const normalizedAngle = ((-_spinRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const winnerIdx = Math.floor(normalizedAngle / segAngle) % SPIN_PRIZES.length;
+            drawSpinWheel(_spinRotation);
+            revealSpinPrize(winnerIdx);
+        }
+    }
+    _spinAnimId = requestAnimationFrame(animate);
+}
+
+function revealSpinPrize(idx) {
+    const prize = SPIN_PRIZES[idx];
+    const resultEl = document.getElementById('spinResult');
+
+    if (prize.type === 'stars') {
+        state.stars += prize.value;
+        if (resultEl) resultEl.textContent = `You won ${prize.label}!`;
+        showToast(`🎰 Lucky Spin! You won <strong>${prize.label}</strong>`);
+    } else if (prize.type === 'powerup') {
+        const powerupDef = SHOP_ITEMS.powerups.find(p => p.id === prize.value);
+        if (powerupDef) {
+            state.activePowerups.push({ id: powerupDef.id, name: powerupDef.name, remaining: powerupDef.duration });
+        }
+        if (resultEl) resultEl.textContent = `You got ${prize.label}!`;
+        showToast(`🎰 Lucky Spin! You got <strong>${prize.label}</strong> activated!`);
+    }
+
+    state.lastSpin = new Date().toDateString();
+    saveState();
+    updateDisplay();
+    updatePowerupDisplay();
+
+    if (resultEl) {
+        resultEl.classList.remove('pop');
+        void resultEl.offsetWidth;
+        resultEl.classList.add('pop');
+    }
+
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) { spinBtn.textContent = 'Claim & Close'; spinBtn.disabled = false; spinBtn.onclick = closeLuckySpin; }
+}
+
+// ============================================================================
 // SHOP & ACHIEVEMENTS UI
 // ============================================================================
 function openShop() {
     const overlay = document.getElementById('shopOverlay');
     const box = document.getElementById('shopBox');
-    const shopCoins = document.getElementById('shopCoins');
+    const shopStars = document.getElementById('shopStars');
 
-    if (shopCoins) shopCoins.textContent = `🪙 ${state.coins} Coins`;
+    if (shopStars) shopStars.textContent = `⭐ ${state.stars.toFixed(2)}`;
+
+    // Render ball skins
+    const skinsEl = document.getElementById('skinsShop');
+    if (skinsEl) {
+        skinsEl.innerHTML = BALL_SKINS.map(skin => {
+            const owned = skin.cost === 0 || state.unlockedItems.includes(skin.id);
+            const active = state.activeSkin === skin.id;
+            return `
+                <div class="shop-item ${active ? 'theme-active' : ''}">
+                    <div class="shop-item-header">
+                        <span class="shop-item-name">${skin.name}</span>
+                        <span class="shop-item-cost">${owned ? (active ? '● Active' : '✓ Owned') : `⭐ ${skin.cost}`}</span>
+                    </div>
+                    <p class="shop-item-desc">${skin.description}</p>
+                    ${owned
+                        ? `<button class="buy-btn" data-skin="${skin.id}" ${active ? 'disabled' : ''}>${active ? 'Applied' : 'Apply'}</button>`
+                        : `<button class="buy-btn" data-buy-skin="${skin.id}" ${state.stars < skin.cost ? 'disabled' : ''}>${state.stars < skin.cost ? 'Not Enough Stars' : 'Buy'}</button>`
+                    }
+                </div>`;
+        }).join('');
+
+        skinsEl.querySelectorAll('[data-buy-skin]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const skin = BALL_SKINS.find(s => s.id === btn.dataset.buySkin);
+                if (!skin || state.stars < skin.cost) return;
+                state.stars -= skin.cost;
+                state.unlockedItems.push(skin.id);
+                state.activeSkin = skin.id;
+                saveState();
+                btn.classList.add('purchased-flash');
+                setTimeout(() => { btn.classList.remove('purchased-flash'); openShop(); }, 400);
+            });
+        });
+
+        skinsEl.querySelectorAll('[data-skin]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.activeSkin = btn.dataset.skin;
+                saveState();
+                openShop();
+            });
+        });
+    }
 
     // Render powerups
     const powerupsEl = document.getElementById('powerupsShop');
@@ -1487,11 +2779,11 @@ function openShop() {
             <div class="shop-item">
                 <div class="shop-item-header">
                     <span class="shop-item-name">${item.name}</span>
-                    <span class="shop-item-cost">🪙 ${item.cost}</span>
+                    <span class="shop-item-cost">⭐ ${item.cost}</span>
                 </div>
                 <p class="shop-item-desc">${item.description}</p>
-                <button class="buy-btn" data-item="${item.id}" ${state.coins < item.cost ? 'disabled' : ''}>
-                    ${state.coins < item.cost ? 'Not Enough Coins' : 'Buy'}
+                <button class="buy-btn" data-item="${item.id}" ${state.stars < item.cost ? 'disabled' : ''}>
+                    ${state.stars < item.cost ? 'Not Enough Stars' : 'Buy'}
                 </button>
             </div>
         `).join('');
@@ -1501,7 +2793,58 @@ function openShop() {
             btn.addEventListener('click', () => {
                 const itemId = btn.dataset.item;
                 activatePowerup(itemId);
-                openShop(); // Refresh
+                btn.classList.add('purchased-flash');
+                setTimeout(() => {
+                    btn.classList.remove('purchased-flash');
+                    openShop(); // Refresh
+                }, 400);
+            });
+        });
+    }
+
+    // Render themes
+    const themesEl = document.getElementById('themesShop');
+    if (themesEl) {
+        const allThemes = [
+            { id: 'default', name: '🎮 Default', description: 'The original arcade look', cost: 0 },
+            ...SHOP_ITEMS.themes
+        ];
+        themesEl.innerHTML = allThemes.map(item => {
+            const owned = item.cost === 0 || state.unlockedItems.includes(item.id);
+            const active = state.currentTheme === item.id;
+            return `
+                <div class="shop-item ${active ? 'theme-active' : ''}">
+                    <div class="shop-item-header">
+                        <span class="shop-item-name">${item.name}</span>
+                        <span class="shop-item-cost">${owned ? (active ? '● Active' : '✓ Owned') : `⭐ ${item.cost}`}</span>
+                    </div>
+                    <p class="shop-item-desc">${item.description}</p>
+                    ${owned
+                        ? `<button class="buy-btn" data-theme="${item.id}" ${active ? 'disabled' : ''}>${active ? 'Applied' : 'Apply'}</button>`
+                        : `<button class="buy-btn" data-buy-theme="${item.id}" ${state.stars < item.cost ? 'disabled' : ''}>${state.stars < item.cost ? 'Not Enough Stars' : 'Buy'}</button>`
+                    }
+                </div>`;
+        }).join('');
+
+        themesEl.querySelectorAll('[data-buy-theme]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.buyTheme;
+                const item = SHOP_ITEMS.themes.find(t => t.id === id);
+                if (!item || state.stars < item.cost) return;
+                state.stars -= item.cost;
+                state.unlockedItems.push(id);
+                applyTheme(id);
+                saveState();
+                btn.classList.add('purchased-flash');
+                setTimeout(() => { btn.classList.remove('purchased-flash'); openShop(); }, 400);
+            });
+        });
+
+        themesEl.querySelectorAll('[data-theme]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyTheme(btn.dataset.theme);
+                saveState();
+                openShop();
             });
         });
     }
@@ -1533,7 +2876,7 @@ function openAchievements() {
                     <div class="achievement-details">
                         <div class="achievement-name">${ach.name}</div>
                         <div class="achievement-desc">${ach.description}</div>
-                        <div class="achievement-reward">Reward: ₱${ach.reward} + 🪙${ach.reward/2}</div>
+                        <div class="achievement-reward">Reward: ⭐${ach.reward}</div>
                     </div>
                     <div class="achievement-status">
                         ${unlocked ? '✅ Unlocked' : '🔒 Locked'}
@@ -1556,7 +2899,7 @@ function closeAchievements() {
 
 // ============================================================================
 function initHUD() {
-    ['petsToggleHeader', 'statsToggleHeader'].forEach(id => {
+    ['petsToggleHeader', 'statsToggleHeader', 'challengesToggleHeader'].forEach(id => {
         const header = document.getElementById(id);
         if (!header) return;
         const target = header.nextElementSibling;
@@ -1574,6 +2917,24 @@ function initHUD() {
 
     const closeShopBtn = document.getElementById('closeShop');
     if (closeShopBtn) closeShopBtn.addEventListener('click', closeShop);
+
+    const closeSpinBtn = document.getElementById('closeSpinBtn');
+    if (closeSpinBtn) closeSpinBtn.addEventListener('click', closeLuckySpin);
+
+    const spinBtn = document.getElementById('spinBtn');
+    if (spinBtn) spinBtn.addEventListener('click', doSpin);
+
+    const luckySpinBtn = document.getElementById('luckySpinBtn');
+    if (luckySpinBtn) {
+        luckySpinBtn.addEventListener('click', () => {
+            const today = new Date().toDateString();
+            if (state.lastSpin === today) {
+                showToast('🎰 Already spun today! Come back tomorrow.');
+            } else {
+                openLuckySpin();
+            }
+        });
+    }
 
     const achievementsBtn = document.getElementById('achievementsBtn');
     if (achievementsBtn) achievementsBtn.addEventListener('click', openAchievements);
@@ -1612,6 +2973,7 @@ function initHUD() {
     if (betInput) {
         betInput.addEventListener('change', (e) => {
             state.bet = Math.max(CONFIG.MIN_BET, parseFloat(e.target.value) || CONFIG.MIN_BET);
+            state.baseBet = state.bet;
             betInput.value = state.bet.toFixed(2);
             updateDisplay();
         });
@@ -1638,7 +3000,7 @@ function initHUD() {
     const maxBetBtn = document.getElementById('maxBet');
     if (maxBetBtn) {
         maxBetBtn.addEventListener('click', () => {
-            state.bet = Math.max(CONFIG.MIN_BET, state.balance);
+            state.bet = Math.max(CONFIG.MIN_BET, state.stars);
             if (betInput) betInput.value = state.bet.toFixed(2);
             playSound(maxBetSound);
             updateDisplay();
@@ -1650,12 +3012,17 @@ function initHUD() {
         CONFIG.PRESETS.forEach(amount => {
             const btn = document.createElement('button');
             btn.className = 'preset-btn';
-            btn.textContent = `₱${amount}`;
+            btn.textContent = `⭐${amount}`;
             btn.addEventListener('click', () => {
-                if (amount <= state.balance) {
+                if (amount <= state.stars) {
                     state.bet = amount;
                     if (betInput) betInput.value = state.bet.toFixed(2);
                     updateDisplay();
+                } else {
+                    btn.classList.remove('shake');
+                    void btn.offsetWidth; // force reflow to restart animation
+                    btn.classList.add('shake');
+                    setTimeout(() => btn.classList.remove('shake'), 300);
                 }
             });
             presetsEl.appendChild(btn);
@@ -1668,6 +3035,14 @@ function initHUD() {
             state.risk = e.target.value;
             generateBoard();
             updateDisplay();
+        });
+    }
+
+    const betStrategyEl = document.getElementById('betStrategy');
+    if (betStrategyEl) {
+        betStrategyEl.addEventListener('change', (e) => {
+            state.betStrategy = e.target.value;
+            state.baseBet = state.bet;
         });
     }
 
@@ -1685,13 +3060,36 @@ function initHUD() {
     const resetBtn = document.getElementById('resetBalance');
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
-            if (await showConfirm('Reset balance and statistics?')) {
-                state.balance = CONFIG.INITIAL_BALANCE;
-                state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
-                state.winStreak = 0;
+            const isGameOver = state.isGameOver;
+            const msg = isGameOver
+                ? 'You lost everything. This will wipe ALL progress — level, achievements, owned items, everything. Start fresh?'
+                : 'Reset balance and statistics?';
+            if (await showConfirm(msg)) {
+                if (isGameOver) {
+                    // Full wipe — losing has consequences
+                    state.stars = CONFIG.INITIAL_STARS;
+                    state.level = 1;
+                    state.xp = 0;
+                    state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                    state.winStreak = 0;
+                    state.achievements = [];
+                    state.dailyProgress = { wins: 0, streak: 0, wagered: 0 };
+                    state.activePowerups = [];
+                    state.unlockedItems = [];
+                    state.biggestBet = 0;
+                    state.jackpotHit = false;
+                    state.comebackAchieved = false;
+                    state.currentTheme = 'default';
+                    applyTheme('default');
+                } else {
+                    state.stars = CONFIG.INITIAL_STARS;
+                    state.stats = { gamesPlayed: 0, totalWagered: 0, totalWon: 0, biggestWin: 0, biggestMultiplier: 0, longestStreak: 0 };
+                    state.winStreak = 0;
+                }
                 saveState();
                 updateDisplay();
                 updateStatsDisplay();
+                updateLevelDisplay();
                 hideGameOver();
             }
         });
@@ -1701,7 +3099,7 @@ function initHUD() {
     if (zeroBtn) {
         zeroBtn.addEventListener('click', async () => {
             if (await showConfirm('Are you sure? Your balance will be ZERO and you will lose immediately! 😱')) {
-                state.balance = 0;
+                state.stars = 0;
                 saveState();
                 updateDisplay();
                 showGameOver();
@@ -1740,8 +3138,8 @@ function initHUD() {
     document.addEventListener('click', startMusic);
 
     const handlePlay = async () => {
-        if (state.balance >= state.bet) {
-            state.balance -= state.bet;
+        if (state.stars >= state.bet) {
+            state.stars -= state.bet;
 
             // Track biggest bet
             if (state.bet > state.biggestBet) {
@@ -1805,7 +3203,7 @@ function initHUD() {
         }
         const speed = CONFIG.AUTOPLAY_SPEEDS[state.autoPlaySpeed];
         state.autoPlayInterval = setInterval(async () => {
-            if (state.balance >= state.bet) handlePlay();
+            if (state.stars >= state.bet) handlePlay();
             else {
                 stopAutoPlay();
                 await showAlert('Auto Play stopped because you ran out of funds. Reset now! 💸');
@@ -1878,11 +3276,11 @@ function initHUD() {
             const net = totalWon - totalWagered;
 
             rCtx.fillText(`GAMES PLAYED:      ${gamesPlayed}`, 50, 260);
-            rCtx.fillText(`TOTAL WAGERED:     ₱${totalWagered.toFixed(2)}`, 50, 285);
-            rCtx.fillText(`TOTAL WON:         ₱${totalWon.toFixed(2)}`, 50, 310);
-            rCtx.fillText(`NET PROFIT:        ₱${net.toFixed(2)}`, 50, 335);
-            rCtx.fillText(`BIGGEST WIN:       ₱${biggestWin.toFixed(2)}`, 50, 360);
-            rCtx.fillText(`BEST MULTIPLIER:   ${biggestMultiplier}x`, 50, 385);
+            rCtx.fillText(`TOTAL WAGERED:     ⭐${totalWagered.toFixed(2)}`, 50, 285);
+            rCtx.fillText(`TOTAL WON:         ⭐${totalWon.toFixed(2)}`, 50, 310);
+            rCtx.fillText(`NET PROFIT:        ⭐${net.toFixed(2)}`, 50, 335);
+            rCtx.fillText(`BIGGEST WIN:       ⭐${biggestWin.toFixed(2)}`, 50, 360);
+            rCtx.fillText(`BEST MULTIPLIER:   ${parseFloat(biggestMultiplier.toFixed(2))}x`, 50, 385);
 
             rCtx.textAlign = 'center';
             rCtx.fillText('--------------------------', receiptCanvas.width / 2, 415);
@@ -1932,18 +3330,18 @@ function initHUD() {
                 // Bet (Gray)
                 rCtx.textAlign = 'left';
                 rCtx.fillStyle = '#aaa';
-                rCtx.fillText(`₱${entry.bet.toFixed(2)}`, hX + 25, entryY);
+                rCtx.fillText(`⭐${entry.bet.toFixed(2)}`, hX + 25, entryY);
                 
                 // Multiplier (Gold)
                 rCtx.textAlign = 'center';
                 rCtx.fillStyle = '#d4af37';
                 rCtx.font = 'bold 12px sans-serif';
-                rCtx.fillText(`${entry.multi}x`, hX + hW / 2, entryY);
+                rCtx.fillText(`${parseFloat(entry.multi.toFixed(2))}x`, hX + hW / 2, entryY);
                 
                 // Profit (Green/Red)
                 rCtx.textAlign = 'right';
                 rCtx.fillStyle = entry.multi >= 1 ? '#4caf50' : '#f44336';
-                rCtx.fillText(`₱${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
+                rCtx.fillText(`⭐${entry.profit.toFixed(2)}`, hX + hW - 25, entryY);
             });
 
             // 5. Footer
@@ -2018,14 +3416,18 @@ function initPets() {
 
 window.onload = () => {
     initHUD();
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    applyTheme(state.currentTheme);
     resizeCanvases();
     setTimeout(resizeCanvases, 100);
     initPets();
     checkDailyLogin(); // Check for daily rewards
+    state.baseBet = state.bet;
     updateDisplay();
     updateStatsDisplay();
     updateLevelDisplay();
-    updateCoinDisplay();
+    updateJackpotMeter();
     checkAchievements(); // Check for initial achievements
 
     let resizeTimeout;
